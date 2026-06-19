@@ -1,0 +1,20 @@
+.card {
+	max-width: 400px;
+	padding: 14px;
+	border-radius: 5px;
+	border: 1px solid gray;
+	margin: 5px;
+	box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.title {
+	font-size: 26px;
+	font-weight: bold;
+	color: darkred;
+}
+
+.description {
+	margin-top: 5px;
+	color: darkslategray;
+	font-size: 18px;
+}
