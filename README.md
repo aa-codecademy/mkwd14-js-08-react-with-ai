@@ -1,17 +1,30 @@
 # ⚛️ React with AI
 
-Repository for learning **React** (UI with TypeScript), from components and hooks through routing, data fetching, and app structure—with AI-assisted development where it helps.
+Repository for learning **React** (UI with TypeScript), from components and hooks through global state, routing, and data fetching—with AI-assisted development where it helps.
+
+---
+
+## 📋 Course overview
+
+|             |                                                 |
+| ----------- | ----------------------------------------------- |
+| **Group**   | G2                                              |
+| **Trainer** | Ivo Kostovski                                   |
+| **Email**   | [ivo@kostovski.dev](mailto:ivo@kostovski.dev)   |
+| **Web**     | [kostovski.dev](https://kostovski.dev)          |
+| **GitHub**  | [ivokostovski](https://github.com/ivokostovski) |
 
 ---
 
 ## 📚 Topics
 
-- **React fundamentals** — components, JSX, props, composition, lists and keys
-- **State & effects** — `useState`, `useEffect`, derived state, lifting state up
-- **Forms & controlled inputs** — validation patterns, user input flow
-- **Routing** — client-side navigation, nested routes, loaders (where covered)
-- **Data fetching** — async UI, loading/error states, API integration patterns
-- **Styling approaches** — CSS modules, utility classes, or component libraries (as used in class)
+- **React fundamentals** — Vite, JSX, components, props, composition
+- **State & events** — `useState`, event handling, lists, keys, conditionals
+- **Forms & controlled inputs** — controlled components, `useReducer`
+- **Effects & data fetching** — `useEffect`, `fetch`, `useRef`, loading/error states
+- **Lifting state & composition** — sharing state, avoiding prop drilling
+- **Global state** — Context API + `localStorage`, then Zustand
+- **Routing & custom hooks** — React Router, full CRUD, reusable hooks
 - **AI in the workflow** — scaffolding components, explaining React patterns, reviewing code (with human validation)
 
 ---
@@ -57,10 +70,10 @@ Built-in **JavaScript and TypeScript** support in VS Code covers syntax highligh
 
 ## 📂 Homeworks
 
-All homework instructions live in the `[homeworks/](./homeworks)` folder. Each assignment has its own README there.
+All homework instructions live in the [`homeworks/`](./homeworks) folder. Each assignment has its own README there.
 
 ---
 
 ## 📁 Class materials
 
-In-class examples and exercises are organized by session (e.g. `[01_components/](./01_components)`).
+In-class examples and exercises are organized by session (e.g. [`01_components/`](./01_components)).
