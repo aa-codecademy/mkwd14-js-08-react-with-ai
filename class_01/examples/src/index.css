@@ -1,3 +1,10 @@
+/* ============================================================
+   GLOBAL STYLES — imported once in main.tsx, applied everywhere
+   ============================================================ */
+
+/* This single line is all it takes to enable Tailwind CSS v4.
+   It imports the Tailwind base styles and utility classes.
+   No separate config file needed — Tailwind v4 works via the Vite plugin. */
 @import 'tailwindcss';
 
 :root {
@@ -5,7 +12,9 @@
 	color: black;
 }
 
-/* These are used as general overwrites when not using tailwind */
+/* These are used as general CSS resets when not using Tailwind.
+   Tailwind's preflight (built-in reset) handles this automatically,
+   so this block is commented out to avoid conflicts. */
 /* * {
 	box-sizing: border-box;
 	margin: 0;
