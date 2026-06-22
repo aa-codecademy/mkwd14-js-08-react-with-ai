@@ -1,7 +1,11 @@
 import type { Recipe } from '../types/recipe';
 
+// UPPERCASE constant signals this is static, module-level data — not derived from state or props.
+// `import type` imports only the TypeScript type, not any runtime code.
+// This is a good habit: it makes it obvious the import is purely for type-checking, not for executing code.
 export const RECIPES: Recipe[] = [
 	{
+		// Use a meaningful string id so this value can safely be used as a list `key` prop.
 		id: 'r1',
 		title: 'Creamy Tomato Pasta',
 		description: 'A quick weeknight pasta with a silky tomato cream sauce.',

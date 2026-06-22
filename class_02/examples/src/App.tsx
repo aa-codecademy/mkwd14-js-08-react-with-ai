@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import './App.css';
 
 function AboutUs() {
+	// Every console.log here fires on every render — useful for understanding when React re-renders a component.
 	console.log('about us render');
 	return (
 		<div className='p-2 border border-slate-900 bg-amber-700'>
@@ -15,12 +16,16 @@ function AboutUs() {
 	);
 }
 
+// Defining the shape of data with a TypeScript type keeps components and data in sync.
+// If EMPLOYEES ever gains a new field, TypeScript will warn every place that uses Employee.
 type Employee = {
 	id: number;
 	name: string;
 	isEmployeeOfTheMonth: boolean;
 };
 
+// UPPERCASE convention signals this is module-level constant data, not component state.
+// It lives outside the component so it is created once, not on every render.
 const EMPLOYEES: Employee[] = [
 	{ id: 1, name: 'Alice Smith', isEmployeeOfTheMonth: false },
 	{ id: 2, name: 'Bob Johnson', isEmployeeOfTheMonth: false },
@@ -35,35 +40,36 @@ const EMPLOYEES: Employee[] = [
 ];
 
 function Employees() {
+	// State is initialised with the EMPLOYEES constant — the component now "owns" its own copy.
 	const [employees, setEmployees] = useState<Employee[]>(EMPLOYEES);
 	console.log('Employees render');
 
 	useEffect(() => {
+		// This effect runs ONCE after the first render because the dependency array [] is empty.
+		// An empty [] means "run this only when the component mounts" — the equivalent of componentDidMount in class components.
 		console.log('Employees mounted');
 
 		const id = window.setInterval(() => {
 			console.log('Employees count:', 10);
 		}, 2000);
 
+		// The function returned from useEffect is the CLEANUP function.
+		// React calls it when the component is removed from the screen (unmounted).
+		// Without clearInterval here, the interval keeps firing even after the component is gone — a memory leak.
 		return () => clearInterval(id);
 	}, []);
 
 	const handleEmployeeOfTheMonthChange = (newEmployeeOfTheMonthId: number) => {
-		// Option 1:
-		// const newEmployeeOfTheMonthList = employees.map(employee => {
-		// 	if (employee.id === newEmployeeOfTheMonthId) {
-		// 		employee.isEmployeeOfTheMonth = true;
-		// 	} else {
-		// 		employee.isEmployeeOfTheMonth = false;
-		// 	}
+		// Option 1 (commented out): passes the current employees array directly.
+		// The problem: if multiple setState calls happen quickly, React might batch them
+		// and Option 1 could read a stale version of the array.
 
-		// 	return employee;
-		// });
-
-		// setEmployees(newEmployeeOfTheMonthList);
-
-		// Option 2:
+		// Option 2 (active): the functional updater form. React guarantees that
+		// `employeesList` here is always the latest state, even when updates are batched.
+		// Prefer this pattern whenever your new state depends on the previous state.
 		setEmployees((employeesList: Employee[]) =>
+			// .map() returns a brand-new array — we never mutate state directly.
+			// Mutating state in place (e.g. employees[0].isEmployeeOfTheMonth = true) would not trigger a re-render.
 			employeesList.map(employee => {
 				if (employee.id === newEmployeeOfTheMonthId) {
 					employee.isEmployeeOfTheMonth = true;
@@ -80,14 +86,21 @@ function Employees() {
 		<div className='p-2 border border-slate-900 bg-sky-600'>
 			<h2>Employees page</h2>
 			<ul>
+				{/* .map() turns an array of data into an array of JSX elements. */}
 				{employees.map(employee => (
+					// The `key` prop is REQUIRED for list items. React uses it to match
+					// old and new items during re-renders — without it, React can't tell which
+					// item changed and may update the wrong one. Use a stable unique ID, not the array index.
 					<li
 						key={employee.id}
 						className='flex justify-between'
+						// Inline style for dynamic values — the colour depends on runtime data, so a static CSS class won't work here.
 						style={{
 							color: employee.isEmployeeOfTheMonth ? 'yellow' : '',
 						}}>
 						{employee.name}
+						{/* Pass a function REFERENCE — () => handleEmployeeOfTheMonthChange(...) — NOT handleEmployeeOfTheMonthChange(...).
+						    Adding () would call the function immediately on every render instead of waiting for a click. */}
 						<button
 							className='ml-2 px-2 cursor-pointer border rounded-md bg-emerald-500 text-black'
 							onClick={() => handleEmployeeOfTheMonthChange(employee.id)}>
@@ -100,23 +113,31 @@ function Employees() {
 	);
 }
 
+// This is "lifting state up" — activePage lives in App (the parent) and is passed down as props.
+// Both Navigation (reads it to highlight the active link) and App (reads it to decide which page to render) need it,
+// so it must live in their common ancestor.
 type NavigationProps = {
 	activePage: 'home' | 'about-us' | 'employees-list';
+	// setActivePage is a function prop — the parent passes its own state setter so the child can update it.
 	setActivePage: (activePage: 'home' | 'about-us' | 'employees-list') => void;
 };
 
 function Navigation({ activePage, setActivePage }: NavigationProps) {
 	console.log('Navigation render');
 
+	// Empty dependency array [] → runs once on mount. Good for one-time setup (fetching data, subscriptions, logging).
 	useEffect(() => {
 		console.log('Navigation mounted');
 	}, []);
 
-	// Do not do this
+	// Avoid this pattern (useEffect with NO dependency array) — it runs after EVERY render,
+	// which is almost never what you want and can cause infinite loops if the effect triggers a state update.
 	// useEffect(() => {
 	// 	console.log('Navigation changes');
 	// });
 
+	// [activePage] in the dependency array means: re-run this effect whenever activePage changes.
+	// React compares the previous and new value — if they differ, the effect fires again.
 	useEffect(() => {
 		console.log('Navigation changes', activePage);
 	}, [activePage]);
@@ -124,11 +145,14 @@ function Navigation({ activePage, setActivePage }: NavigationProps) {
 	return (
 		<nav className='bg-emerald-700 border'>
 			<ul className='flex justify-center gap-5'>
+				{/* Conditional inline style: bold when this is the active page.
+				    The ternary reads activePage from props — the parent always controls which page is active. */}
 				<li
 					style={{
 						fontWeight: activePage === 'home' ? 'bold' : '',
 					}}
 					className='cursor-pointer'
+					// Clicking calls setActivePage from the parent — the child never owns the state, it only signals the parent.
 					onClick={() => setActivePage('home')}>
 					Home
 				</li>
@@ -170,6 +194,8 @@ function HomePage() {
 
 function App() {
 	console.log('app render');
+	// The union type 'home' | 'about-us' | 'employees-list' restricts activePage to only those three strings.
+	// TypeScript will error if you try to set it to anything else — great for catching typos.
 	const [activePage, setActivePage] = useState<
 		'home' | 'about-us' | 'employees-list'
 	>('home');
@@ -177,7 +203,10 @@ function App() {
 	return (
 		<div>
 			<h1>Single Page Application (SPA)</h1>
+			{/* setActivePage is passed as a prop so Navigation can change the state that lives here in App. */}
 			<Navigation activePage={activePage} setActivePage={setActivePage} />
+			{/* Chained ternary — this is React's version of a router. No page changes happen in the browser;
+			    React just swaps which component is rendered based on the activePage state value. */}
 			{activePage === 'home' ? (
 				<HomePage />
 			) : activePage === 'about-us' ? (
