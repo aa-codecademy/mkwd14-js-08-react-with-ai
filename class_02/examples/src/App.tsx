@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css';
 
 function AboutUs() {
@@ -15,16 +15,86 @@ function AboutUs() {
 	);
 }
 
+type Employee = {
+	id: number;
+	name: string;
+	isEmployeeOfTheMonth: boolean;
+};
+
+const EMPLOYEES: Employee[] = [
+	{ id: 1, name: 'Alice Smith', isEmployeeOfTheMonth: false },
+	{ id: 2, name: 'Bob Johnson', isEmployeeOfTheMonth: false },
+	{ id: 3, name: 'Carol Williams', isEmployeeOfTheMonth: true },
+	{ id: 4, name: 'David Brown', isEmployeeOfTheMonth: false },
+	{ id: 5, name: 'Eve Davis', isEmployeeOfTheMonth: false },
+	{ id: 6, name: 'Frank Miller', isEmployeeOfTheMonth: false },
+	{ id: 7, name: 'Grace Wilson', isEmployeeOfTheMonth: false },
+	{ id: 8, name: 'Hank Moore', isEmployeeOfTheMonth: false },
+	{ id: 9, name: 'Ivy Taylor', isEmployeeOfTheMonth: false },
+	{ id: 10, name: 'Jack Anderson', isEmployeeOfTheMonth: false },
+];
+
 function Employees() {
+	const [employees, setEmployees] = useState<Employee[]>(EMPLOYEES);
 	console.log('Employees render');
+
+	useEffect(() => {
+		console.log('Employees mounted');
+
+		const id = window.setInterval(() => {
+			console.log('Employees count:', 10);
+		}, 2000);
+
+		return () => clearInterval(id);
+	}, []);
+
+	const handleEmployeeOfTheMonthChange = (newEmployeeOfTheMonthId: number) => {
+		// Option 1:
+		// const newEmployeeOfTheMonthList = employees.map(employee => {
+		// 	if (employee.id === newEmployeeOfTheMonthId) {
+		// 		employee.isEmployeeOfTheMonth = true;
+		// 	} else {
+		// 		employee.isEmployeeOfTheMonth = false;
+		// 	}
+
+		// 	return employee;
+		// });
+
+		// setEmployees(newEmployeeOfTheMonthList);
+
+		// Option 2:
+		setEmployees((employeesList: Employee[]) =>
+			employeesList.map(employee => {
+				if (employee.id === newEmployeeOfTheMonthId) {
+					employee.isEmployeeOfTheMonth = true;
+				} else {
+					employee.isEmployeeOfTheMonth = false;
+				}
+
+				return employee;
+			}),
+		);
+	};
+
 	return (
 		<div className='p-2 border border-slate-900 bg-sky-600'>
 			<h2>Employees page</h2>
 			<ul>
-				<li>John Doe</li>
-				<li>Jane Doe</li>
-				<li>Jack Doe</li>
-				<li>Mike Doe</li>
+				{employees.map(employee => (
+					<li
+						key={employee.id}
+						className='flex justify-between'
+						style={{
+							color: employee.isEmployeeOfTheMonth ? 'yellow' : '',
+						}}>
+						{employee.name}
+						<button
+							className='ml-2 px-2 cursor-pointer border rounded-md bg-emerald-500 text-black'
+							onClick={() => handleEmployeeOfTheMonthChange(employee.id)}>
+							Mark as EOTM
+						</button>
+					</li>
+				))}
 			</ul>
 		</div>
 	);
@@ -37,6 +107,20 @@ type NavigationProps = {
 
 function Navigation({ activePage, setActivePage }: NavigationProps) {
 	console.log('Navigation render');
+
+	useEffect(() => {
+		console.log('Navigation mounted');
+	}, []);
+
+	// Do not do this
+	// useEffect(() => {
+	// 	console.log('Navigation changes');
+	// });
+
+	useEffect(() => {
+		console.log('Navigation changes', activePage);
+	}, [activePage]);
+
 	return (
 		<nav className='bg-emerald-700 border'>
 			<ul className='flex justify-center gap-5'>
