@@ -255,7 +255,7 @@ export const RECIPES: Recipe[] = [
 		title: 'Apple Cinnamon Pancakes',
 		description: 'Fluffy pancakes with sautéed apples and cinnamon.',
 		imageUrl:
-			'https://images.unsplash.com/photo-1528207776542-56565b140ebd?w=400&h=300&fit=crop',
+			'https://images.unsplash.com/photo-1509482560494-4126f8225994?w=400&h=300&fit=crop',
 		prepMinutes: 30,
 		servings: 3,
 		tags: ['breakfast', 'dessert', 'vegetarian'],
