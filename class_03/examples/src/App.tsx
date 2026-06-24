@@ -31,6 +31,8 @@ function App() {
 	const [firstNameError, setFirstNameError] = useState('Missing first name');
 	const [shouldShowFirstNameError, setShouldShowFirstNameError] =
 		useState(false);
+	const [shouldMakeFirstNameReadOnly, setShouldMakeFirstNameReadOnly] =
+		useState(false);
 
 	const handleFormSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -53,8 +55,12 @@ function App() {
 				<input
 					id='first_name'
 					value={firstName}
+					readOnly={shouldMakeFirstNameReadOnly}
 					onChange={e => setFirstName(e.target.value)}
-					onBlur={() => setShouldShowFirstNameError(!firstName)}
+					onBlur={() => {
+						setShouldShowFirstNameError(!firstName);
+						setShouldMakeFirstNameReadOnly(true);
+					}}
 					placeholder='John'
 					className='border'
 				/>
@@ -79,6 +85,14 @@ function App() {
 					placeholder='18'
 					className='border'
 				/>
+				<br />
+				{!!age && age >= 18 && (
+					<input
+						id='isMarried'
+						placeholder='Are you married?'
+						className='border'
+					/>
+				)}
 				<br />
 				<button type='submit' className='bg-green-700'>
 					Submit
