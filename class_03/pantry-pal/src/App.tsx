@@ -17,7 +17,7 @@ function App() {
 					    IMPORTANT: `key` is missing here — every mapped element needs a unique `key` prop
 					    so React can identify which card changed during re-renders. Add key={recipe.id}. */}
 					{RECIPES.map(recipe => (
-						<Recipe recipe={recipe} />
+						<Recipe key={recipe.id} recipe={recipe} />
 					))}
 				</div>
 			</main>
