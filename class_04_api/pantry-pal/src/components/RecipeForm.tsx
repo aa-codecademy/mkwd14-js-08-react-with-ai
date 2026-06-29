@@ -2,7 +2,8 @@
 // Instead of dozens of useState calls (one per field + one per error + one per "touched" flag),
 // useForm gives you a single object with everything pre-wired.
 import { useFieldArray, useForm } from 'react-hook-form';
-import type { Recipe } from '../types/recipe';
+import type { CreateRecipe } from '../types/recipe';
+import { createRecipe } from '../lib/api';
 
 // FormValues describes the shape of the data as the form sees it.
 // This can differ from the final Recipe type — e.g. `tags` is a comma-separated string here
@@ -47,15 +48,19 @@ const ERROR_FIELD_CLASSES = 'mt-1 text-xs text-red-600';
 
 const DEFAULT_IMAGE_URL = 'https://placehold.co/400x300?text=Recipe';
 
-function RecipeForm() {
+type RecipeFormProps = {
+	onSuccess: () => void;
+};
+
+function RecipeForm({ onSuccess }: RecipeFormProps) {
 	// useForm returns an object with everything you need to manage the form.
 	// Destructure only what you need — the full API is larger.
 	const {
-		register,       // connects a native input to react-hook-form
-		handleSubmit,   // wraps your onSubmit with validation — calls onSubmit only if all rules pass
-		reset,          // resets all fields back to defaultValues
-		control,        // the bridge that non-native inputs (like useFieldArray) need
-		watch,          // subscribes to a field's value so you can use it in render
+		register, // connects a native input to react-hook-form
+		handleSubmit, // wraps your onSubmit with validation — calls onSubmit only if all rules pass
+		reset, // resets all fields back to defaultValues
+		control, // the bridge that non-native inputs (like useFieldArray) need
+		watch, // subscribes to a field's value so you can use it in render
 		formState: { errors, isSubmitting }, // derived metadata — errors is a nested object, isSubmitting is a boolean
 	} = useForm<FormValues>({
 		defaultValues: DEFAULT_VALUES,
@@ -92,11 +97,8 @@ function RecipeForm() {
 
 	// onSubmit receives validated, fully typed form data — react-hook-form only calls this
 	// function if ALL validation rules pass. No need to manually check for empty fields here.
-	const onSubmit = (data: FormValues) => {
-		const recipe: Recipe = {
-			// crypto.randomUUID() generates a cryptographically unique ID in the browser.
-			// Using a real unique ID (not an incrementing counter) is safer in distributed systems.
-			id: crypto.randomUUID(),
+	const onSubmit = async (data: FormValues) => {
+		const recipe: CreateRecipe = {
 			title: data.title,
 			description: data.description,
 			imageUrl: data.imageUrl,
@@ -112,9 +114,11 @@ function RecipeForm() {
 			steps: data.steps.map(step => step.text),
 		};
 
-		console.log(recipe);
+		const savedRecipe = await createRecipe(recipe);
+		console.log('🚀 ~ onSubmit ~ savedRecipe:', savedRecipe);
 		// reset() clears the form back to DEFAULT_VALUES after a successful submission.
 		reset(DEFAULT_VALUES);
+		onSuccess();
 	};
 
 	return (

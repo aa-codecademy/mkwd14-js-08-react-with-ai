@@ -21,3 +21,15 @@ export type Recipe = {
 	ingredients: Ingredient[];
 	steps: string[];
 };
+
+export type CreateRecipe = {
+	title: string;
+	description: string;
+	imageUrl: string;
+	prepMinutes: number;
+	servings: number;
+	tags: string[];
+	// Nested type: an array of Ingredient objects, not just strings. This lets you model complex data cleanly.
+	ingredients: Ingredient[];
+	steps: string[];
+};

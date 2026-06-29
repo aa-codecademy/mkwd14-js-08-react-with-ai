@@ -1,21 +1,31 @@
-import Header from './components/Header';
+import { useState } from 'react';
 import RecipeForm from './components/RecipeForm';
 import RecipeList from './components/RecipeList';
+import NavBar from './components/Navbar';
 
 function App() {
+	const [pageInView, setPageInView] = useState<'home' | 'form'>('home');
+
 	return (
 		// min-h-screen ensures the gradient fills at least the full viewport height even with little content.
 		<div className='min-h-screen bg-linear-to-b from-brand-50 to-white'>
-			<Header />
+			<NavBar
+				pageInView={pageInView}
+				onPageSelect={page => setPageInView(page)}
+			/>
+			{/* <Header /> */}
+			{/* <nav>
+				<ul>
+					<li onClick={() => setPageInView('home')}>Home</li>
+					<li onClick={() => setPageInView('form')}>Form</li>
+				</ul>
+			</nav> */}
 			<main className='mx-auto max-w-6xl px-6 py-10'>
-				{/* <RecipeForm /> */}
-				{/* Responsive grid: 1 column on mobile, 2 on sm, 3 on lg, 4 on xl.
-				    Tailwind's responsive prefixes (sm:, lg:, xl:) apply from that breakpoint upward. */}
+				{pageInView === 'home' && <RecipeList />}
 
-				{/* .map() turns each recipe object into a Recipe component.
-					    IMPORTANT: `key` is missing here — every mapped element needs a unique `key` prop
-					    so React can identify which card changed during re-renders. Add key={recipe.id}. */}
-				<RecipeList />
+				{pageInView === 'form' && (
+					<RecipeForm onSuccess={() => setPageInView('home')} />
+				)}
 			</main>
 		</div>
 	);
