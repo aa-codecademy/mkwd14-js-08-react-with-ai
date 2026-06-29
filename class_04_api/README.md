@@ -1,499 +1,450 @@
-# Class 03 — Forms, Validation & react-hook-form
+# Class 4 — APIs, useEffect & Async Data Fetching
 
-Welcome to Class 03! This class is all about forms in React — one of the most common and tricky things you'll build as a frontend developer. We start with a hand-rolled controlled form, understand why managing lots of form state manually gets painful, and then solve it elegantly with **react-hook-form**. By the end you'll know how to build real-world forms with validation, dynamic field lists, and live previews.
+Welcome to Class 4! This class is about connecting your React app to the outside world. Until now, all your data has lived inside the component (in state or hardcoded arrays). Today you learn how to **fetch data from a server**, handle the **loading, success, and error states** that come with async operations, and **send data back** with POST requests. By the end you'll have a full read/write app backed by a real REST API.
 
 ---
 
 ## Table of Contents
 
-1. [Controlled vs Uncontrolled Forms](#1-controlled-vs-uncontrolled-forms)
-2. [The Problem with Manual Form State](#2-the-problem-with-manual-form-state)
-3. [Core Concepts](#3-core-concepts)
-   - [useForm](#useform)
-   - [register](#register)
-   - [handleSubmit](#handlesubmit)
-   - [formState — errors & isSubmitting](#formstate--errors--issubmitting)
-   - [watch](#watch)
-   - [reset](#reset)
-   - [useFieldArray](#usefieldarray)
-   - [Validation Rules](#validation-rules)
-4. [Form UX Patterns](#4-form-ux-patterns)
-   - [Touched / Dirty](#touched--dirty)
-   - [Live Previews](#live-previews)
-   - [Dynamic Field Lists](#dynamic-field-lists)
-5. [Theory](#5-theory)
-6. [Project Structure](#6-project-structure)
-7. [Useful Links](#7-useful-links)
-8. [Mini Examples](#8-mini-examples)
-9. [Practice Exercises](#9-practice-exercises)
+1. [Core Concepts](#1-core-concepts)
+   - [useEffect](#useeffect)
+   - [The fetch API](#the-fetch-api)
+   - [async/await vs .then()](#asyncawait-vs-then)
+   - [The HttpStatus pattern](#the-httpstatus-pattern)
+   - [Separating API calls into a lib file](#separating-api-calls-into-a-lib-file)
+   - [POST requests with JSON](#post-requests-with-json)
+2. [Theory](#2-theory)
+3. [Project Structure](#3-project-structure)
+4. [Useful Links](#4-useful-links)
+5. [Mini Examples](#5-mini-examples)
+6. [Practice Exercises](#6-practice-exercises)
 
 ---
 
-## 1. Controlled vs Uncontrolled Forms
+## 1. Core Concepts
 
-In React, an input can be **controlled** or **uncontrolled**.
+### useEffect
 
-| | Controlled | Uncontrolled |
-|---|---|---|
-| Who owns the value? | React state | The DOM |
-| How do you read it? | From state | Via a `ref` |
-| When to use it? | Almost always | File inputs, 3rd-party libs |
-
-A **controlled input** has both `value` and `onChange` wired to React state:
+`useEffect` lets you run **side effects** after a component renders. A side effect is anything that reaches outside of React — fetching data, setting a timer, subscribing to an event.
 
 ```tsx
-const [name, setName] = useState('');
+import { useEffect } from 'react';
 
-<input
-  value={name}                          // React drives the display value
-  onChange={e => setName(e.target.value)} // keep state in sync as the user types
-/>
+useEffect(() => {
+  // your side effect here
+}, [dependencies]);
 ```
 
-If you only set `value` without `onChange`, React will warn you ("You provided a `value` prop without an `onChange` handler"). That warning exists because the input would appear frozen — you can type but nothing changes.
+The second argument is the **dependency array**:
 
-> **Note:** The naming is slightly confusing. The `examples/` folder calls its form "Uncontrolled" in the heading, but the inputs are actually controlled (they have `value` + `onChange`). "Uncontrolled" in that context refers to the form *management approach* — no form library — not to the input type.
+| Value | What it means |
+|---|---|
+| `[]` (empty) | Run once after the first render (on mount) |
+| `[count]` | Run after every render where `count` changed |
+| omitted | Run after every render — usually not what you want |
 
----
-
-## 2. The Problem with Manual Form State
-
-Imagine a form with 8 fields, each needing:
-- A state value
-- A state setter
-- An error message
-- A "has the user visited this field?" flag (touched)
-- A "has the user changed the value?" flag (dirty)
-
-That's 40 pieces of state — before you even write validation logic. Maintaining all of that is fragile and repetitive. **react-hook-form** solves this by managing all of it internally, exposing a clean API.
+> **Gotcha:** If you forget the `[]` in a data-fetch effect, React will re-fetch on every render, causing an infinite loop. Always include the dependency array.
 
 ---
 
-## 3. Core Concepts
+### The fetch API
 
-### useForm
-
-`useForm` is the entry point to react-hook-form. Call it at the top of your component and destructure what you need:
+`fetch` is a browser built-in for making HTTP requests. It returns a **Promise** that resolves to a `Response` object.
 
 ```tsx
-const {
-  register,
-  handleSubmit,
-  reset,
-  control,
-  watch,
-  formState: { errors, isSubmitting },
-} = useForm<FormValues>({
-  defaultValues: DEFAULT_VALUES,
+const response = await fetch('https://api.example.com/data');
+```
+
+**Critical rule:** `fetch` only rejects (throws) on **network errors** (no connection, DNS failure). A `404 Not Found` or `500 Server Error` still *resolves* — you have to check `response.ok` yourself:
+
+```tsx
+const response = await fetch('https://api.example.com/data');
+
+// response.ok is true for status codes 200–299
+if (!response.ok) {
+  throw new Error('Request failed'); // you must throw manually
+}
+
+const data = await response.json(); // parse the JSON body
+```
+
+> **Note:** `response.json()` is also async — it reads the response body stream. Always `await` it.
+
+---
+
+### async/await vs .then()
+
+Both styles do the same thing — they handle Promises. Pick the style that is clearest for the task.
+
+**`.then()` style** — good for simple chains, works well with `.finally()`:
+
+```tsx
+fetch(URL)
+  .then(res => res.json())
+  .then(data => setData(data))
+  .catch(err => setError(err.message))
+  .finally(() => setIsLoading(false));
+```
+
+**`async/await` style** — reads more like synchronous code, easier to follow for multiple steps:
+
+```tsx
+async function loadData() {
+  try {
+    const res = await fetch(URL);
+    const data = await res.json();
+    setData(data);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setIsLoading(false);
+  }
+}
+```
+
+> **Gotcha:** You cannot make the `useEffect` callback itself `async` (it would return a Promise, but React expects either nothing or a cleanup function). Instead, define an async function *inside* the effect and call it immediately:
+> 
+> ```tsx
+> useEffect(() => {
+>   async function load() {
+>     const data = await fetchSomething();
+>     setData(data);
+>   }
+>   load(); // call it right away
+> }, []);
+> ```
+
+---
+
+### The HttpStatus pattern
+
+Instead of three separate boolean flags (`isLoading`, `isError`, `isSuccess`), use **one string** that can only hold one value at a time:
+
+```tsx
+type HttpStatus = 'idle' | 'loading' | 'success' | 'error';
+
+const [status, setStatus] = useState<HttpStatus>('idle');
+```
+
+Why this is better:
+
+- Booleans can contradict each other (`isLoading: true, isSuccess: true` makes no sense — but TypeScript can't prevent it).
+- A union type enforces that only one state is active at any moment.
+- Conditional rendering reads clearly: `{status === 'loading' && <Skeleton />}`
+
+The four states:
+
+| Status | Meaning |
+|---|---|
+| `'idle'` | Nothing has happened yet — initial render |
+| `'loading'` | Request is in flight |
+| `'success'` | Data arrived successfully |
+| `'error'` | Request failed |
+
+---
+
+### Separating API calls into a lib file
+
+Putting `fetch` calls directly in components couples two concerns: *what to render* and *how to talk to a server*. When the API changes, you'd have to hunt through every component that calls it.
+
+A better approach: create `src/lib/api.ts` and export plain async functions:
+
+```ts
+// src/lib/api.ts
+export async function fetchRecipes(): Promise<Recipe[]> {
+  const response = await fetch(`${BASE_URL}/recipes`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.message);
+  return data.data;
+}
+```
+
+Your component just calls the function — it doesn't care about URLs, headers, or JSON parsing:
+
+```tsx
+// RecipeList.tsx
+fetchRecipes()
+  .then(data => setRecipes(data))
+  .catch(err => setError(err.message));
+```
+
+This separation is sometimes called a **service layer** or **API module**.
+
+---
+
+### POST requests with JSON
+
+To send data to the server, pass an options object to `fetch`:
+
+```tsx
+await fetch(`${BASE_URL}/recipes`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json', // tells the server how to read the body
+  },
+  body: JSON.stringify(newRecipe), // JS object → JSON string
 });
 ```
 
-- `FormValues` is a TypeScript type that describes the shape of your form data.
-- `defaultValues` initialises each field — without it, fields start as `undefined` and you get "uncontrolled → controlled" warnings.
+Three things to remember every time:
+1. Set `method: 'POST'`
+2. Set `Content-Type: application/json` — without it, most servers ignore the body
+3. `JSON.stringify` the body — `fetch` can only send strings or binary data, not JS objects
 
 ---
 
-### register
+## 2. Theory
 
-`register` connects a native HTML input to react-hook-form. You spread its return value onto the input:
+### Why useEffect exists
 
-```tsx
-<input {...register('title', { required: 'Title is required' })} />
-```
+React's rendering is a **pure function**: given the same props and state, the component always returns the same JSX. Side effects (network calls, timers, DOM manipulations) break that purity — they have consequences *outside* the render.
 
-Under the hood, `register('title')` returns `{ name, ref, onChange, onBlur }`. By spreading it, you hand those handlers to the input without any extra code. The second argument is the **validation rules** for that field.
+`useEffect` is React's escape hatch: it lets you say "after rendering, do this thing that affects the outside world." React keeps the render pure and isolates impure code in effects.
 
-> **Gotcha:** Never manually add `value` or `onChange` to an input that's already registered. react-hook-form manages those internally using an uncontrolled approach (ref-based), even though the API looks controlled.
+### The Promise mental model
 
----
+Think of a Promise as an IOU note. `fetch(url)` hands you an IOU immediately ("I promise to give you the response eventually"). You can `.then()` to say "when the promise is fulfilled, do this with the value" and `.catch()` to say "if it fails, handle it here."
 
-### handleSubmit
+`async/await` is just cleaner syntax for the same concept — `await` pauses the async function until the Promise resolves, then continues with the value.
 
-`handleSubmit` wraps your submit handler. You never call `onSubmit` directly:
+### Why fetch doesn't throw on 4xx/5xx
 
-```tsx
-<form onSubmit={handleSubmit(onSubmit)}>
-```
+The `fetch` spec was designed to only reject on *network-level* failures (you couldn't even reach the server). Once the server responds — even with an error code — from the network's perspective the request succeeded. This is why you always check `response.ok` yourself.
 
-react-hook-form calls `onSubmit(data)` only if **all** validation rules pass. If any field is invalid, it populates `errors` and prevents submission — without you writing a single `if` statement.
+### Response streaming
 
-Your `onSubmit` function receives a fully typed `data` object:
+`response.json()` is async because the response body arrives as a **stream** — the browser reads it in chunks. `.json()` reads all the chunks, assembles them, and parses the JSON. For large responses this takes a measurable amount of time, which is why you always `await` it.
 
-```tsx
-const onSubmit = (data: FormValues) => {
-  console.log(data); // all fields, validated and typed
-};
-```
+### Skeleton loading vs spinner
+
+In `RecipeList.tsx`, the loading state shows **skeleton cards** (grey placeholder boxes) instead of a spinner. Skeletons reduce *perceived* load time — the page layout is established immediately and items "pop in" rather than the whole page jumping from empty to full. This is a common production pattern.
 
 ---
 
-### formState — errors & isSubmitting
-
-`errors` is a nested object. If the `title` field fails validation, `errors.title.message` contains the error string you provided in `register`:
-
-```tsx
-{errors.title && <p>{errors.title.message}</p>}
-```
-
-`isSubmitting` is `true` while your async `onSubmit` is running. Use it to disable the submit button and prevent double-clicks:
-
-```tsx
-<button type="submit" disabled={isSubmitting}>
-  {isSubmitting ? 'Saving...' : 'Save'}
-</button>
-```
-
----
-
-### watch
-
-`watch` subscribes your component to a field's live value — it causes a re-render every time that field changes:
-
-```tsx
-const imageUrl = watch('imageUrl');
-// imageUrl always reflects what the user is currently typing
-```
-
-Use it sparingly — for things that *need* to drive the UI (like a live preview). Watching every field would cause unnecessary re-renders.
-
----
-
-### reset
-
-`reset` clears the form back to its default values. Call it after a successful submission:
-
-```tsx
-reset(DEFAULT_VALUES);
-```
-
-You can also call `reset()` with no arguments to go back to the `defaultValues` you passed to `useForm`.
-
----
-
-### useFieldArray
-
-`useFieldArray` manages a **dynamic list** of fields (ingredients, steps, etc.):
-
-```tsx
-const { fields, append, remove } = useFieldArray({
-  control,        // must come from the same useForm instance
-  name: 'steps',  // the field array key in your FormValues type
-});
-```
-
-- `fields` — the current array (each item has a stable `id` from react-hook-form — use it as the `key`)
-- `append(value)` — adds a new item to the end
-- `remove(index)` — removes the item at that index
-
-> **Important:** Use `field.id` as the list `key`, not the array index. When you remove item 2 from a 5-item list, the indices shift — this causes React to misidentify which DOM nodes to reuse, breaking focus and animation.
-
----
-
-### Validation Rules
-
-The second argument to `register` is a rules object:
-
-```tsx
-register('prepMinutes', {
-  required: 'This field is required',
-  min: { value: 1, message: 'Must be at least 1' },
-  max: { value: 999, message: 'Unreasonably large' },
-  valueAsNumber: true,        // cast string input to a JS number
-  validate: (value) =>
-    isValidUrl(value) || 'Must be a valid URL',  // custom rule
-})
-```
-
-Common rules:
-
-| Rule | Type | Notes |
-|---|---|---|
-| `required` | `string` (error message) | Field cannot be empty |
-| `min` / `max` | `{ value, message }` | Numeric or date bounds |
-| `minLength` / `maxLength` | `{ value, message }` | String length bounds |
-| `pattern` | `{ value: RegExp, message }` | Regex match |
-| `validate` | `(value) => true \| string` | Custom function |
-| `valueAsNumber` | `boolean` | Auto-cast to number |
-
----
-
-## 4. Form UX Patterns
-
-### Touched / Dirty
-
-- **Touched**: the user has visited (focused then blurred) a field. Show errors only on touched fields so you don't immediately yell at the user before they've typed anything.
-- **Dirty**: the user has changed a field's value from its initial value. Useful for "unsaved changes" warnings.
-
-react-hook-form tracks both in `formState.touchedFields` and `formState.dirtyFields`.
-
----
-
-### Live Previews
-
-Use `watch` to show live feedback as the user types:
-
-```tsx
-const imageUrl = watch('imageUrl');
-const isUrlValid = !errors.imageUrl && imageUrl.trim();
-
-{isUrlValid && <img src={imageUrl} alt="Preview" />}
-```
-
----
-
-### Dynamic Field Lists
-
-The "add / remove" pattern for dynamic fields:
-
-```tsx
-// Adding a new empty row
-<button type="button" onClick={() => append({ name: '', amount: '' })}>
-  + Add ingredient
-</button>
-
-// Removing a specific row
-<button type="button" onClick={() => remove(index)}>
-  Remove
-</button>
-```
-
-Always use `type="button"` on these buttons. A button inside a form defaults to `type="submit"` — forgetting this causes the entire form to submit when you try to add a row.
-
----
-
-## 5. Theory
-
-### Why react-hook-form uses refs internally
-
-Most form libraries (like Formik) are "controlled" — every keystroke triggers a state update, which triggers a re-render. For a 20-field form, that's 20 re-renders per second of typing.
-
-react-hook-form is different: it uses **uncontrolled inputs with refs**. The DOM owns each input value. react-hook-form reads the values via refs only when needed (on submit, or when you explicitly call `watch`). This makes it significantly faster for large forms.
-
-The tradeoff: `watch` re-subscribes you to a field the "controlled" way — you get re-renders for that specific field, but everything else stays fast.
-
-### e.preventDefault() — why it matters
-
-A native form submit causes a **full page reload** (the browser sends a GET or POST request to the URL in the form's `action` attribute). Calling `e.preventDefault()` intercepts this before the browser acts, giving you control over what happens next. react-hook-form's `handleSubmit` calls `e.preventDefault()` for you automatically.
-
-### crypto.randomUUID()
-
-`crypto.randomUUID()` generates a **UUID v4** — a 128-bit random identifier, practically guaranteed to be unique. It's built into modern browsers (no library needed). This is better than using an incrementing counter because:
-- Counters reset when the page reloads
-- Counters from different clients can clash if you later add a backend
-- UUIDs are compatible with database IDs (which are often strings)
-
----
-
-## 6. Project Structure
+## 3. Project Structure
 
 ```text
-class_03/
-├── examples/               # Hands-on form: manual controlled inputs + validation
+class_04_api/
+├── examples/                   # Minimal standalone fetch demo
 │   └── src/
-│       └── App.tsx         # Single-file form showing touched, dirty, conditional rendering
+│       └── App.tsx             # useEffect + fetch + loading/error states in one file
 │
-└── pantry-pal/             # Full recipe app with react-hook-form
+└── pantry-pal/                 # Full recipe app with read + write API calls
     └── src/
-        ├── App.tsx          # Root — renders Header, RecipeForm, and the recipe grid
-        ├── main.tsx         # Entry point (StrictMode toggled off for debugging)
+        ├── App.tsx             # Root — manages pageInView state (simple client router)
+        ├── main.tsx            # Entry point
         ├── components/
-        │   ├── Header.tsx   # Static page header
-        │   ├── Recipe.tsx   # Recipe card (article + TagList)
-        │   ├── RecipeForm.tsx  # The main form — useForm + useFieldArray
-        │   └── TagList.tsx  # Renders tag pills from recipe.tags[]
-        ├── data/
-        │   └── seedData.ts  # Static array of 12 sample recipes
+        │   ├── Header.tsx      # Static page header (not used in final version)
+        │   ├── Navbar.tsx      # Tab nav — calls onPageSelect prop to signal App
+        │   ├── Recipe.tsx      # Recipe card component
+        │   ├── RecipeForm.tsx  # Form with react-hook-form + createRecipe API call
+        │   ├── RecipeList.tsx  # Fetches recipes on mount, renders loading/error/success
+        │   └── TagList.tsx     # Renders tag pills from recipe.tags[]
+        ├── lib/
+        │   └── api.ts          # All fetch calls live here — fetchRecipes, createRecipe
         └── types/
-            └── recipe.ts    # Shared Recipe and Ingredient types
+            ├── http-status.ts  # HttpStatus union type
+            └── recipe.ts       # Recipe, CreateRecipe, Ingredient types
 ```
 
 ---
 
-## 7. Useful Links
+## 4. Useful Links
 
 | Topic | Link |
 |---|---|
-| react-hook-form docs | https://react-hook-form.com/docs |
-| `useForm` API | https://react-hook-form.com/docs/useform |
-| `useFieldArray` API | https://react-hook-form.com/docs/usefieldarray |
-| Validation rules reference | https://react-hook-form.com/docs/useform/register |
-| MDN — HTMLFormElement: submit event | https://developer.mozilla.org/en-US/docs/Web/API/HTMLFormElement/submit_event |
-| MDN — crypto.randomUUID() | https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID |
-| Tailwind CSS docs | https://tailwindcss.com/docs |
-| TypeScript — utility types | https://www.typescriptlang.org/docs/handbook/utility-types.html |
+| MDN — `fetch` API | https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch |
+| MDN — `useEffect` | https://react.dev/reference/react/useEffect |
+| MDN — `Response.ok` | https://developer.mozilla.org/en-US/docs/Web/API/Response/ok |
+| MDN — `Response.json()` | https://developer.mozilla.org/en-US/docs/Web/API/Response/json |
+| MDN — `JSON.stringify` | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify |
+| React docs — synchronising with effects | https://react.dev/learn/synchronizing-with-effects |
+| React docs — you might not need an effect | https://react.dev/learn/you-might-not-need-an-effect |
+| MDN — Promises | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise |
+| JSONPlaceholder (fake REST API for practice) | https://jsonplaceholder.typicode.com |
 
 ---
 
-## 8. Mini Examples
+## 5. Mini Examples
 
-### Example 1 — Simple login form with react-hook-form
+### Example 1 — Fetch a single item and display it
 
 ```tsx
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 
-type LoginForm = { email: string; password: string };
+type User = { id: number; name: string; email: string };
 
-function LoginForm() {
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>();
+function UserProfile({ userId }: { userId: number }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
-  const onSubmit = (data: LoginForm) => {
-    console.log('Login:', data);
-  };
+  useEffect(() => {
+    fetch(`https://jsonplaceholder.typicode.com/users/${userId}`)
+      .then(res => {
+        if (!res.ok) throw new Error('User not found');
+        return res.json();
+      })
+      .then(data => {
+        setUser(data);
+        setStatus('success');
+      })
+      .catch(() => setStatus('error'));
+  }, [userId]); // re-fetch whenever userId changes
+
+  if (status === 'loading') return <p>Loading...</p>;
+  if (status === 'error') return <p>Could not load user.</p>;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <input
-        {...register('email', {
-          required: 'Email is required',
-          pattern: { value: /\S+@\S+\.\S+/, message: 'Invalid email' },
-        })}
-        placeholder="Email"
-      />
-      {errors.email && <p>{errors.email.message}</p>}
-
-      <input
-        type="password"
-        {...register('password', { required: 'Password is required', minLength: { value: 8, message: 'Min 8 characters' } })}
-        placeholder="Password"
-      />
-      {errors.password && <p>{errors.password.message}</p>}
-
-      <button type="submit">Log in</button>
-    </form>
+    <div>
+      <h2>{user!.name}</h2>
+      <p>{user!.email}</p>
+    </div>
   );
 }
 ```
 
 ---
 
-### Example 2 — Controlled form with touched state (manual approach)
+### Example 2 — POST request button
 
 ```tsx
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
-function SignupForm() {
-  const [email, setEmail] = useState('');
-  const [touched, setTouched] = useState(false);
+function LikeButton({ postId }: { postId: number }) {
+  const [liked, setLiked] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const emailError = !email.includes('@') ? 'Enter a valid email' : '';
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    setTouched(true); // force all errors to show on submit attempt
-    if (emailError) return;
-    alert('Signed up!');
+  const handleLike = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}/like`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked: true }),
+      });
+      if (!res.ok) throw new Error('Failed to like');
+      setLiked(true);
+    } catch (err) {
+      alert('Something went wrong');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <input
-        value={email}
-        onChange={e => setEmail(e.target.value)}
-        onBlur={() => setTouched(true)}
-        placeholder="Email"
-      />
-      {/* only show error after the user has interacted with the field */}
-      {touched && emailError && <p style={{ color: 'red' }}>{emailError}</p>}
-      <button type="submit">Sign up</button>
-    </form>
+    <button onClick={handleLike} disabled={isLoading || liked}>
+      {liked ? '❤️ Liked' : isLoading ? 'Liking...' : '🤍 Like'}
+    </button>
   );
 }
 ```
 
 ---
 
-### Example 3 — Dynamic list with useFieldArray
+### Example 3 — fetch with async/await inside useEffect
 
 ```tsx
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 
-type TodoForm = { todos: { text: string }[] };
+type Todo = { id: number; title: string; completed: boolean };
 
-function TodoForm() {
-  const { register, handleSubmit, control } = useForm<TodoForm>({
-    defaultValues: { todos: [{ text: '' }] },
-  });
+function TodoList() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [error, setError] = useState('');
 
-  const { fields, append, remove } = useFieldArray({ control, name: 'todos' });
+  useEffect(() => {
+    // Define the async function inside the effect — you can't make the effect callback itself async.
+    async function loadTodos() {
+      try {
+        const res = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=5');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: Todo[] = await res.json();
+        setTodos(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    }
+    loadTodos();
+  }, []);
+
+  if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
   return (
-    <form onSubmit={handleSubmit(data => console.log(data))}>
-      {fields.map((field, index) => (
-        <div key={field.id}>
-          <input {...register(`todos.${index}.text`)} placeholder={`Todo ${index + 1}`} />
-          {fields.length > 1 && (
-            <button type="button" onClick={() => remove(index)}>Remove</button>
-          )}
-        </div>
+    <ul>
+      {todos.map(todo => (
+        <li key={todo.id} style={{ textDecoration: todo.completed ? 'line-through' : 'none' }}>
+          {todo.title}
+        </li>
       ))}
-      <button type="button" onClick={() => append({ text: '' })}>+ Add todo</button>
-      <button type="submit">Save</button>
-    </form>
+    </ul>
   );
 }
 ```
 
 ---
 
-### Example 4 — Live character count with watch
+### Example 4 — Re-fetch when a search term changes
 
 ```tsx
-import { useForm } from 'react-hook-form';
+import { useEffect, useState } from 'react';
 
-type BioForm = { bio: string };
-const MAX_LENGTH = 160;
+function SearchResults() {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<string[]>([]);
 
-function BioForm() {
-  const { register, watch, handleSubmit } = useForm<BioForm>({
-    defaultValues: { bio: '' },
-  });
-
-  const bio = watch('bio');
-  const remaining = MAX_LENGTH - bio.length;
+  // Every time `query` changes, this effect re-runs and fetches fresh results.
+  // The dependency array [query] is what triggers the re-fetch.
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      return;
+    }
+    fetch(`/api/search?q=${encodeURIComponent(query)}`)
+      .then(res => res.json())
+      .then(data => setResults(data.results));
+  }, [query]);
 
   return (
-    <form onSubmit={handleSubmit(data => console.log(data))}>
-      <textarea
-        {...register('bio', { maxLength: { value: MAX_LENGTH, message: 'Too long' } })}
-        rows={4}
-        placeholder="Tell us about yourself..."
+    <div>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        placeholder="Search..."
       />
-      {/* Live counter — updates on every keystroke because watch() re-renders the component */}
-      <p style={{ color: remaining < 20 ? 'red' : 'gray' }}>
-        {remaining} characters remaining
-      </p>
-      <button type="submit">Save bio</button>
-    </form>
+      <ul>
+        {results.map((r, i) => <li key={i}>{r}</li>)}
+      </ul>
+    </div>
   );
 }
 ```
 
 ---
 
-## 9. Practice Exercises
+## 6. Practice Exercises
 
 ### Beginner
 
-1. **Add a "website" field** to the `examples/` form. It should only appear if the user has typed a first name. Use conditional rendering (`&&`).
+1. **Show the count in the title.** In `RecipeList.tsx`, update the success message to also say "recipes found" only when the count is greater than zero. When zero, show "No recipes yet — add one!".
 
-2. **Show a character count** below the Description textarea in `RecipeForm.tsx`. Use `watch('description')` to get the current value and display `{value.length} / 200 characters`.
+2. **Add a retry button.** When `status === 'error'`, add a "Try again" button that re-runs the fetch. Hint: move the fetch logic into a named function inside the component and call it both in `useEffect` and on the button click.
 
-3. **Make tags required** in `RecipeForm.tsx`. Add a `required` rule to the `tags` field and display the error message.
+3. **Explore the examples app.** Change `API_URL` in `examples/src/App.tsx` to `https://jsonplaceholder.typicode.com/users` and update the `Post` type and JSX to display user names and email addresses.
 
 ### Intermediate
 
-4. **Validate min/max servings** so the form rejects values less than 1 or greater than 50. Display appropriate error messages.
+4. **Add a loading spinner to RecipeForm.** The form already disables the submit button while `isSubmitting` is true. Display a visible spinner (a simple rotating CSS circle or an emoji like `⏳`) next to the button text while the request is in flight.
 
-5. **Add a "Cuisine" dropdown** (`<select>`) to `RecipeForm.tsx` with options like Italian, Asian, Mexican, Other. Register it with react-hook-form and include it in the `onSubmit` recipe object.
+5. **Handle 404 gracefully.** In `api.ts`, update `fetchRecipes` so that if the server returns a 404, the error message reads "Recipes not found" instead of whatever the server sends. Hint: check `response.status === 404` before the generic `throw`.
 
-6. **Show a "form is dirty" banner** at the top of `RecipeForm.tsx` when any field has been changed from its default value. Use `formState.isDirty`.
+6. **Success toast notification.** After `createRecipe` succeeds in `RecipeForm.tsx`, show a temporary "Recipe saved!" message for 3 seconds before it disappears. Use a boolean state and `setTimeout` inside the `onSuccess` callback.
 
 ### Challenge
 
-7. **Add cross-field validation**: the form should reject submission if the title appears anywhere in the description (e.g. a recipe called "Pasta" with a description containing "Pasta" is invalid). Use a custom `validate` function on the `description` field and access the sibling field via `getValues('title')` (available from `useForm`).
+7. **Debounce a search field.** Add a text input to `RecipeList.tsx` that filters recipes by title. Instead of filtering on every keypress, use `useEffect` with a `setTimeout` to wait 300ms after the user stops typing before filtering. Clear the timeout with a cleanup function (`return () => clearTimeout(id)` inside `useEffect`).
 
-8. **Build a multi-step form**: split `RecipeForm.tsx` into two steps — Step 1: basic info (title, description, image, prep, servings, tags). Step 2: ingredients and steps. Use a `currentStep` state variable to toggle between them. The "Next" button on Step 1 should validate only the Step 1 fields using `trigger(['title', 'description', 'imageUrl', 'prepMinutes', 'servings'])` from `useForm`.
+8. **Optimistic UI.** When the user submits a new recipe in `RecipeForm.tsx`, add it to the displayed list immediately (before the server responds) by passing a callback to `RecipeList`. If the server call fails, remove the optimistically added item and show an error. This is how most modern apps feel fast — they assume success and roll back on failure.
 
 ---
 
-> **Keep going!** Forms are everywhere — login pages, checkout flows, settings panels, search filters. Every pattern you learned here (validation rules, dynamic lists, touched state, live preview) transfers directly to real projects. The more forms you build, the more natural this feels. See you in Class 04!
+> **Well done!** Connecting React to a real server is one of the most important skills you'll use in every project. The patterns you learned here — `useEffect` for fetching, `HttpStatus` for state modeling, a dedicated `lib/api.ts` module — are battle-tested and transfer directly to production code. Next class we'll look at routing, so your navigation will update the URL instead of just swapping components. See you there!

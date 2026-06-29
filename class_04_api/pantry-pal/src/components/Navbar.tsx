@@ -1,3 +1,5 @@
+// Defining nav items as data (array of objects) instead of hardcoded JSX makes it
+// trivial to add a new page — just add a new object here, no HTML to duplicate.
 const NAV_ITEMS: { id: 'home' | 'form'; label: string }[] = [
 	{ id: 'home', label: 'Home' },
 	{ id: 'form', label: 'Add recipe' },
@@ -5,6 +7,8 @@ const NAV_ITEMS: { id: 'home' | 'form'; label: string }[] = [
 
 type NavBarProps = {
 	pageInView: string;
+	// onPageSelect is a callback prop — the parent (App) owns the state, NavBar just signals what was clicked.
+	// This is the "lift state up" pattern: shared state lives in the closest common ancestor.
 	onPageSelect: (page: 'form' | 'home') => void;
 };
 
@@ -17,6 +21,8 @@ function NavBar({ pageInView, onPageSelect }: NavBarProps) {
 					<button
 						type='button'
 						onClick={() => onPageSelect(item.id)}
+						// Dynamic className: apply active styles when this item matches the current page.
+						// The ternary returns one of two complete class strings — not a partial class name.
 						className={
 							pageInView === item.id
 								? 'rounded-lg bg-brand-700 px-4 py-2 text-sm text-white font-semibold cursor-pointer'

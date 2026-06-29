@@ -4,6 +4,8 @@ import RecipeList from './components/RecipeList';
 import NavBar from './components/Navbar';
 
 function App() {
+	// pageInView acts as a simple client-side router — no URL changes, just conditional rendering.
+	// The union type 'home' | 'form' prevents any typo from compiling (e.g. 'hom' would be a type error).
 	const [pageInView, setPageInView] = useState<'home' | 'form'>('home');
 
 	return (

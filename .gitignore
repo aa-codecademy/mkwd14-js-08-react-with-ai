@@ -32,7 +32,5 @@ Thumbs.db
 *.sw?
 
 # Homeworks not ready yet
-homeworks/hw-3.md
 homeworks/hw-4.md
 homeworks/hw-5.md
-homeworks/server/
