@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import Recipe from './Recipe';
 // Renaming the imported type avoids a name conflict with the Recipe component above.
 import type { Recipe as RecipeType } from '../types/recipe';
-import { fetchRecipes } from '../lib/api';
+import { fetchRecipes, deleteRecipe } from '../lib/api';
 import type { HttpStatus } from '../types/http-status';
+import EditRecipeDialog from './EditRecipeDialog';
 
 function RecipeList() {
 	const [recipes, setRecipes] = useState<RecipeType[]>([]);
@@ -13,10 +14,28 @@ function RecipeList() {
 	const [status, setStatus] = useState<HttpStatus>('idle');
 	const [error, setError] = useState('');
 
+	const [isEditing, setIsEditing] = useState<RecipeType | null>();
+
+	const handleDeleteRecipe = async (id: string) => {
+		setStatus('loading');
+		try {
+			await deleteRecipe(id);
+			const data = await fetchRecipes();
+			setRecipes(data);
+			setStatus('success');
+		} catch (error: unknown) {
+			console.log(error);
+			setStatus('error');
+			setError(
+				(error as { message: string })?.message ||
+					'Issue while deleting recipe.',
+			);
+		}
+	};
+
 	// useEffect with [] runs once after the component mounts — perfect for initial data loading.
 	// If you omit [], this would run after EVERY render, causing an infinite fetch loop.
 	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
 		setStatus('loading'); // show skeleton immediately while the request is in flight
 		fetchRecipes()
 			.then(data => {
@@ -59,9 +78,16 @@ function RecipeList() {
 			<div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
 				{recipes.map(recipe => (
 					// recipe.id is a stable string ID from the database — safe to use as key.
-					<Recipe key={recipe.id} recipe={recipe} />
+					<Recipe
+						key={recipe.id}
+						recipe={recipe}
+						handleDeleteRecipe={handleDeleteRecipe}
+						handleIsEditing={recipe => setIsEditing(recipe)}
+					/>
 				))}
 			</div>
+
+			{isEditing && <EditRecipeDialog recipe={isEditing} onCancel={() => setIsEditing(null)} />}
 		</div>
 	);
 }

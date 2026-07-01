@@ -56,3 +56,9 @@ export async function createRecipe(body: CreateRecipe): Promise<Recipe> {
 		throw error;
 	}
 }
+
+export async function deleteRecipe(id: string): Promise<void> {
+	await fetch(`${BASE_URL}/recipes/${id}`, {
+		method: 'DELETE',
+	});
+}

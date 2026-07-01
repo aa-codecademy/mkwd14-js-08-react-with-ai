@@ -1,17 +1,19 @@
 // `import type` tells TypeScript (and bundlers) this import is purely a type — no runtime value.
 // It's a good practice: it makes imports self-documenting and can improve build performance.
-import type { Recipe as RecipeType } from '../types/recipe';
+import type { Recipe, Recipe as RecipeType } from '../types/recipe';
 import TagList from './TagList';
 
 // Renaming the type to RecipeType avoids a name conflict — we can't call both the component and
 // the type "Recipe" in the same file. A common convention: suffix the type with "Type" or "Props".
 type RecipeProps = {
 	recipe: RecipeType;
+	handleDeleteRecipe: (id: string) => void;
+	handleIsEditing: (recipe: Recipe) => void;
 };
 
 // Component composition: Recipe renders TagList as a child.
 // Each component stays focused on one job — Recipe lays out the card, TagList handles the tag list.
-function Recipe({ recipe }: RecipeProps) {
+function Recipe({ recipe, handleDeleteRecipe, handleIsEditing }: RecipeProps) {
 	return (
 		// `article` is a semantic HTML element for self-contained content (a blog post, a product card, etc.).
 		// Using the right HTML element matters for accessibility and SEO — screen readers understand article.
@@ -32,6 +34,18 @@ function Recipe({ recipe }: RecipeProps) {
 				<p className='mt-auto text-sm font-medium text-brand-700'>
 					{recipe.prepMinutes} min | serves {recipe.servings}
 				</p>
+				<div className='flex gap-2 pt-1 justify-end'>
+					<button
+						className='bg-amber-400 px-4 py-2 rounded-lg'
+						onClick={() => handleIsEditing(recipe)}>
+						Edit
+					</button>
+					<button
+						className='bg-red-600 text-white px-4 py-2 rounded-lg'
+						onClick={() => handleDeleteRecipe(recipe.id)}>
+						Delete
+					</button>
+				</div>
 			</div>
 		</article>
 	);

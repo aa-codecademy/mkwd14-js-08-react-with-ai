@@ -2,7 +2,7 @@
 // Instead of dozens of useState calls (one per field + one per error + one per "touched" flag),
 // useForm gives you a single object with everything pre-wired.
 import { useFieldArray, useForm } from 'react-hook-form';
-import type { CreateRecipe } from '../types/recipe';
+import type { CreateRecipe, Recipe } from '../types/recipe';
 import { createRecipe } from '../lib/api';
 
 // FormValues describes the shape of the data as the form sees it.
@@ -21,16 +21,33 @@ type FormValues = {
 
 // Centralising default values in a constant makes it easy to reset the form later (reset(DEFAULT_VALUES)).
 // It also documents which fields exist and what "empty" means for each type.
-const DEFAULT_VALUES: FormValues = {
-	title: '',
-	description: '',
-	imageUrl: '',
-	prepMinutes: 20,
-	servings: 2,
-	tags: '',
-	ingredients: [{ name: '', amount: '' }],
-	steps: [{ text: '' }],
-};
+// const DEFAULT_VALUES: FormValues = {
+// 	title: '',
+// 	description: '',
+// 	imageUrl: '',
+// 	prepMinutes: 20,
+// 	servings: 2,
+// 	tags: '',
+// 	ingredients: [{ name: '', amount: '' }],
+// 	steps: [{ text: '' }],
+// };
+
+function toFormValues(recipe?: Recipe): FormValues {
+	return {
+		title: recipe?.title ?? '',
+		description: recipe?.description ?? '',
+		imageUrl: recipe?.imageUrl ?? '',
+		prepMinutes: recipe?.prepMinutes ?? 20,
+		servings: recipe?.servings ?? 2,
+		tags: recipe?.tags.join(', ') ?? '',
+		ingredients: recipe?.ingredients.length
+			? recipe.ingredients
+			: [{ name: '', amount: '' }],
+		steps: recipe?.steps.length
+			? recipe.steps.map(step => ({ text: step }))
+			: [{ text: '' }],
+	};
+}
 
 // URL validation regex. Defined outside the component so it's not recreated on every render.
 // The `validate` function in register() calls this to check the field value before submission.
@@ -49,10 +66,12 @@ const ERROR_FIELD_CLASSES = 'mt-1 text-xs text-red-600';
 const DEFAULT_IMAGE_URL = 'https://placehold.co/400x300?text=Recipe';
 
 type RecipeFormProps = {
+	recipe?: Recipe;
 	onSuccess: () => void;
+	onCancel?: () => void;
 };
 
-function RecipeForm({ onSuccess }: RecipeFormProps) {
+function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 	// useForm returns an object with everything you need to manage the form.
 	// Destructure only what you need — the full API is larger.
 	const {
@@ -63,7 +82,7 @@ function RecipeForm({ onSuccess }: RecipeFormProps) {
 		watch, // subscribes to a field's value so you can use it in render
 		formState: { errors, isSubmitting }, // derived metadata — errors is a nested object, isSubmitting is a boolean
 	} = useForm<FormValues>({
-		defaultValues: DEFAULT_VALUES,
+		defaultValues: toFormValues(recipe),
 	});
 
 	// watch('imageUrl') returns the current value of imageUrl on every render.
@@ -313,12 +332,17 @@ function RecipeForm({ onSuccess }: RecipeFormProps) {
 
 			{/* disabled={isSubmitting} prevents double-submits (e.g. from clicking twice quickly).
 			    isSubmitting is automatically managed by react-hook-form during async onSubmit calls. */}
-			<button
-				type='submit'
-				disabled={isSubmitting}
-				className='bg-brand-700 py-1 px-2 rounded-lg text-white'>
-				{!isSubmitting ? 'Save recipe' : 'Submitting...'}
-			</button>
+			<div className='flex justify-end'>
+				<button type='button' onClick={onCancel}>
+					Cancel
+				</button>
+				<button
+					type='submit'
+					disabled={isSubmitting}
+					className='bg-brand-700 py-1 px-2 rounded-lg text-white'>
+					{!isSubmitting ? 'Save recipe' : 'Submitting...'}
+				</button>
+			</div>
 		</form>
 	);
 }

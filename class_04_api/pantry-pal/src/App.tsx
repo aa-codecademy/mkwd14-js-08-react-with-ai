@@ -2,6 +2,7 @@ import { useState } from 'react';
 import RecipeForm from './components/RecipeForm';
 import RecipeList from './components/RecipeList';
 import NavBar from './components/Navbar';
+import EditRecipeDialog from './components/EditRecipeDialog';
 
 function App() {
 	// pageInView acts as a simple client-side router — no URL changes, just conditional rendering.
