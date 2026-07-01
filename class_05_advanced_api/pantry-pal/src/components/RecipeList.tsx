@@ -79,6 +79,9 @@ function RecipeList() {
 
 	return (
 		<div className='space-y-6'>
+			{/* GOTCHA: this input is uncontrolled and has no onChange — typing here does nothing yet.
+			    Wiring it up is a good exercise: add a `search` state, pass it into `params`,
+			    and add `search` to the useEffect dependency array so a new value re-triggers the fetch. */}
 			<InputGroup>
 				<InputGroupInput placeholder='Search for a recipe...' />
 				<InputGroupAddon align='inline-start'>

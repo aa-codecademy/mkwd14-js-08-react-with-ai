@@ -29,11 +29,13 @@ export type CreateRecipe = {
 	prepMinutes: number;
 	servings: number;
 	tags: string[];
-	// Nested type: an array of Ingredient objects, not just strings. This lets you model complex data cleanly.
 	ingredients: Ingredient[];
 	steps: string[];
 };
 
+// Partial<T> makes every field optional — perfect for PATCH requests where the client
+// only sends the fields that changed, not the whole object. Saves you from writing
+// a near-duplicate type by hand every time CreateRecipe changes shape.
 export type UpdateRecipe = Partial<CreateRecipe>;
 
 export type SortBy = 'title' | 'createdAt' | 'servings' | 'prepMinutes';

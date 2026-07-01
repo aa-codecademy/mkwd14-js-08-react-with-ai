@@ -24,9 +24,13 @@ function App() {
 				</ul>
 			</nav> */}
 			<main className='mx-auto max-w-6xl px-6 py-10'>
+				{/* Only one of these two branches is ever rendered — the && short-circuit means
+				    React never mounts both RecipeList and RecipeForm at the same time. */}
 				{pageInView === 'home' && <RecipeList />}
 
 				{pageInView === 'form' && (
+					// onSuccess is passed down so the child can tell the parent "I'm done" —
+					// the child doesn't set pageInView itself, since it doesn't own that state.
 					<RecipeForm onSuccess={() => setPageInView('home')} />
 				)}
 			</main>
