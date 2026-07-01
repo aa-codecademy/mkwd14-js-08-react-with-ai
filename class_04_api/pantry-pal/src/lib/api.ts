@@ -1,4 +1,4 @@
-import type { CreateRecipe, Recipe } from '../types/recipe';
+import type { CreateRecipe, Recipe, UpdateRecipe } from '../types/recipe';
 
 // Centralising the base URL means you change it in one place when you deploy.
 // In a real app this often comes from an environment variable (import.meta.env.VITE_API_URL).
@@ -41,6 +41,30 @@ export async function createRecipe(body: CreateRecipe): Promise<Recipe> {
 			// Without this header, Express (and most backends) won't know it's JSON.
 			headers: { 'Content-Type': 'application/json' },
 			// JSON.stringify converts the JS object to a JSON string — fetch can only send strings/blobs.
+			body: JSON.stringify(body),
+		});
+
+		const response = await rawResponse.json();
+
+		if (!rawResponse.ok) {
+			throw new Error(response.message);
+		}
+
+		return response;
+	} catch (error) {
+		console.error(error);
+		throw error;
+	}
+}
+
+export async function updateRecipe(
+	id: string,
+	body: UpdateRecipe,
+): Promise<Recipe> {
+	try {
+		const rawResponse = await fetch(`${BASE_URL}/recipes/${id}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body),
 		});
 

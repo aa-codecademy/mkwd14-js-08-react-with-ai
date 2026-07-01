@@ -33,6 +33,22 @@ function RecipeList() {
 		}
 	};
 
+	const handleSuccessfulUpdate = async () => {
+		setStatus('loading');
+		try {
+			const data = await fetchRecipes();
+			setRecipes(data);
+			setStatus('success');
+		} catch (error: unknown) {
+			console.log(error);
+			setStatus('error');
+			setError(
+				(error as { message: string })?.message ||
+					'Issue while updating recipe.',
+			);
+		}
+	};
+
 	// useEffect with [] runs once after the component mounts — perfect for initial data loading.
 	// If you omit [], this would run after EVERY render, causing an infinite fetch loop.
 	useEffect(() => {
@@ -87,7 +103,13 @@ function RecipeList() {
 				))}
 			</div>
 
-			{isEditing && <EditRecipeDialog recipe={isEditing} onCancel={() => setIsEditing(null)} />}
+			{isEditing && (
+				<EditRecipeDialog
+					recipe={isEditing}
+					onClose={() => setIsEditing(null)}
+					onSuccess={handleSuccessfulUpdate}
+				/>
+			)}
 		</div>
 	);
 }

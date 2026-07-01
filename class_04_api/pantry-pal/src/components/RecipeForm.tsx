@@ -3,7 +3,7 @@
 // useForm gives you a single object with everything pre-wired.
 import { useFieldArray, useForm } from 'react-hook-form';
 import type { CreateRecipe, Recipe } from '../types/recipe';
-import { createRecipe } from '../lib/api';
+import { createRecipe, updateRecipe } from '../lib/api';
 
 // FormValues describes the shape of the data as the form sees it.
 // This can differ from the final Recipe type — e.g. `tags` is a comma-separated string here
@@ -68,10 +68,10 @@ const DEFAULT_IMAGE_URL = 'https://placehold.co/400x300?text=Recipe';
 type RecipeFormProps = {
 	recipe?: Recipe;
 	onSuccess: () => void;
-	onCancel?: () => void;
+	onClose?: () => void;
 };
 
-function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
+function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 	// useForm returns an object with everything you need to manage the form.
 	// Destructure only what you need — the full API is larger.
 	const {
@@ -84,6 +84,8 @@ function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 	} = useForm<FormValues>({
 		defaultValues: toFormValues(recipe),
 	});
+
+	const isEditing = !!recipe;
 
 	// watch('imageUrl') returns the current value of imageUrl on every render.
 	// We use it to show a live image preview while the user types.
@@ -117,7 +119,7 @@ function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 	// onSubmit receives validated, fully typed form data — react-hook-form only calls this
 	// function if ALL validation rules pass. No need to manually check for empty fields here.
 	const onSubmit = async (data: FormValues) => {
-		const recipe: CreateRecipe = {
+		const payload: CreateRecipe = {
 			title: data.title,
 			description: data.description,
 			imageUrl: data.imageUrl,
@@ -133,10 +135,17 @@ function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 			steps: data.steps.map(step => step.text),
 		};
 
-		const savedRecipe = await createRecipe(recipe);
+		const savedRecipe = isEditing
+			? await updateRecipe(recipe.id, payload)
+			: await createRecipe(payload);
 		console.log('🚀 ~ onSubmit ~ savedRecipe:', savedRecipe);
 		// reset() clears the form back to DEFAULT_VALUES after a successful submission.
-		reset(DEFAULT_VALUES);
+
+		if (isEditing) {
+			onClose?.();
+		} else {
+			reset(toFormValues(recipe));
+		}
 		onSuccess();
 	};
 
@@ -146,7 +155,9 @@ function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 		<form
 			onSubmit={handleSubmit(onSubmit)}
 			className='space-y-4 rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm'>
-			<h2 className='text-lg font-semibold text-brand-900'>Add a recipe</h2>
+			<h2 className='text-lg font-semibold text-brand-900'>
+				{isEditing ? 'Edit recipe' : 'Add a recipe'}
+			</h2>
 
 			<div>
 				<label className={LABEL_CLASSES}>Title *</label>
@@ -333,14 +344,20 @@ function RecipeForm({ recipe, onSuccess, onCancel }: RecipeFormProps) {
 			{/* disabled={isSubmitting} prevents double-submits (e.g. from clicking twice quickly).
 			    isSubmitting is automatically managed by react-hook-form during async onSubmit calls. */}
 			<div className='flex justify-end'>
-				<button type='button' onClick={onCancel}>
-					Cancel
-				</button>
+				{isEditing && (
+					<button type='button' onClick={onClose}>
+						Cancel
+					</button>
+				)}
 				<button
 					type='submit'
 					disabled={isSubmitting}
 					className='bg-brand-700 py-1 px-2 rounded-lg text-white'>
-					{!isSubmitting ? 'Save recipe' : 'Submitting...'}
+					{isSubmitting
+						? 'Saving...'
+						: isEditing
+							? 'Save changes'
+							: 'Save recipe'}
 				</button>
 			</div>
 		</form>

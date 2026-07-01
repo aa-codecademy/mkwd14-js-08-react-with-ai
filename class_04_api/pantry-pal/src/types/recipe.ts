@@ -33,3 +33,5 @@ export type CreateRecipe = {
 	ingredients: Ingredient[];
 	steps: string[];
 };
+
+export type UpdateRecipe = Partial<CreateRecipe>;
