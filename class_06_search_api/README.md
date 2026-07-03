@@ -1,19 +1,19 @@
-# Class 5 — Advanced API Integration: Forms, Editing, and Deleting Records
+# Class 6 — Search, Debouncing & API Filtering
 
-In this class, you take the recipe app from "just displaying data" to a full CRUD (Create, Read, Update, Delete) experience. You'll wire up a real form with validation using `react-hook-form`, add dynamic list fields (ingredients and steps), build an edit dialog that reuses your existing form, wire up delete with instant UI feedback, and manage loading/error states the way production apps do. By the end, you'll understand how a React frontend talks to a real backend across all four HTTP verbs (GET, POST, PATCH, DELETE) and how to keep your UI in sync with the server.
+Welcome back! In this class you take the recipe app from a simple list into a fully searchable, filterable, sortable, and paginated data table backed by a real API. You'll build a controlled search box that doesn't hammer the server on every keystroke (debouncing), wire up tag filters and a max-prep-time filter, add sortable columns, and implement page-based pagination — all driven by a single `useEffect` that re-fetches whenever any of those inputs change. Along the way you'll see why `useEffect`'s dependency array is the real engine behind "the UI automatically stays in sync with the filters."
 
 ---
 
 ## Table of Contents
 
 1. [Core Concepts covered in this class](#core-concepts-covered-in-this-class)
-   - [Controlled vs. uncontrolled forms](#1-controlled-vs-uncontrolled-forms)
-   - [react-hook-form and `register`](#2-react-hook-form-and-register)
-   - [Dynamic field arrays with `useFieldArray`](#3-dynamic-field-arrays-with-usefieldarray)
-   - [Status-based async state](#4-status-based-async-state)
-   - [Dialogs/modals as conditional rendering](#5-dialogsmodals-as-conditional-rendering)
-   - [Lifting state up and callback props](#6-lifting-state-up-and-callback-props)
-   - [A service layer for API calls](#7-a-service-layer-for-api-calls)
+   - [Debouncing user input](#1-debouncing-user-input)
+   - [Controlled search inputs](#2-controlled-search-inputs)
+   - [useEffect dependency arrays as "what triggers a refetch"](#3-useeffect-dependency-arrays-as-what-triggers-a-refetch)
+   - [Resetting pagination when filters change](#4-resetting-pagination-when-filters-change)
+   - [Building query strings for a GET request](#5-building-query-strings-for-a-get-request)
+   - [Multi-select filters (tags) with array state](#6-multi-select-filters-tags-with-array-state)
+   - [Sorting as derived query state](#7-sorting-as-derived-query-state)
 2. [Theory](#theory)
 3. [Useful Links](#useful-links)
 4. [Mini Examples](#mini-examples)
@@ -23,161 +23,127 @@ In this class, you take the recipe app from "just displaying data" to a full CRU
 
 ## Core Concepts covered in this class
 
-### 1. Controlled vs. uncontrolled forms
+### 1. Debouncing user input
 
-In a **controlled** component, React state is the single source of truth for an input's value — you set `value={state}` and update state `onChange`. In an **uncontrolled** component, the DOM itself holds the value, and you only reach in to read it when you need to (via a ref, or a library like `react-hook-form`).
+Debouncing delays acting on a fast-changing value until it *stops* changing for a set amount of time. When a user types "pasta" into a search box, without debouncing you'd fire five API requests (one per keystroke) and only the last one's result actually matters — the rest were wasted network calls that can even race each other and show stale results.
 
-The mental model: controlled forms give you total control (validate on every keystroke, transform input as it's typed) at the cost of a re-render per keystroke. Uncontrolled forms are cheaper and simpler for forms with many fields, which is exactly why libraries like react-hook-form default to the uncontrolled approach.
+The mental model: instead of reacting to every keystroke, you start a timer on each change and only "commit" the value once the timer completes uninterrupted. If the value changes again before the timer fires, you cancel the old timer and start a new one.
 
 ```tsx
-// Controlled: React state drives the value
-function ControlledInput() {
-  const [value, setValue] = useState('');
-  return <input value={value} onChange={e => setValue(e.target.value)} />;
-}
+import { useEffect, useState } from 'react';
 
-// Uncontrolled: the DOM holds the value, we just register it
-function UncontrolledInput() {
-  const { register } = useForm();
-  return <input {...register('name')} />;
+function useDebounce<T>(value: T, delayMs = 400) {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id); // cancel if `value` changes again before delayMs elapses
+  }, [value, delayMs]);
+
+  return debounced;
 }
 ```
 
-### 2. react-hook-form and `register`
+> **Note:** The cleanup function (`return () => clearTimeout(id)`) is what makes this work. Without it, every keystroke would schedule a new timeout that *also* fires, and you'd be back to firing a request per keystroke — just delayed.
 
-`react-hook-form` gives you one hook (`useForm`) that replaces dozens of individual `useState` calls for fields, errors, and submission status. `register('fieldName', rules)` returns an object of props (`name`, `onChange`, `onBlur`, `ref`) that you spread onto a native input — this is how the library "hooks into" the DOM without controlling the value directly.
+### 2. Controlled search inputs
 
-Why it exists: manually tracking value + error + touched state for 10 form fields is repetitive and error-prone. `register` centralizes that bookkeeping and gives you built-in validation rules (`required`, `min`, `validate`) without extra libraries.
+The search box's `value` is driven entirely by React state (`searchTerm`), and every keystroke updates that state via `onChange`. This is a **controlled component** — React state is the single source of truth, never the DOM.
+
+Why it matters here specifically: you need the raw, undebounced `searchTerm` to keep the input responsive as the user types (no lag rendering each character), while a *separate*, debounced copy of that value (`debouncedSearchTerm`) is what actually gets sent to the API. Splitting "what the input shows" from "what triggers a fetch" is the key insight of this pattern.
 
 ```tsx
-import { useForm } from 'react-hook-form';
-
-type FormValues = { email: string };
-
-function SignupForm() {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>();
-
+function SearchInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <form onSubmit={handleSubmit(data => console.log(data))}>
-      <input {...register('email', { required: 'Email is required' })} />
-      {errors.email && <p>{errors.email.message}</p>}
-      <button type="submit">Sign up</button>
-    </form>
+    <input
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder="Search..."
+    />
   );
 }
 ```
 
-> **Note:** Always pass `handleSubmit(onSubmit)` to the form's `onSubmit`, never `onSubmit` directly. `handleSubmit` runs validation first and only calls your function if every rule passes.
+### 3. useEffect dependency arrays as "what triggers a refetch"
 
-### 3. Dynamic field arrays with `useFieldArray`
+The data-fetching `useEffect` in `RecipeList` lists every filter/sort/pagination value in its dependency array: `[debouncedSearchTerm, selectedTags, maxPrepMin, sortBy, sortOrder, page, limit]`. React re-runs the effect whenever *any* of these change between renders — that's the entire mechanism that keeps the recipe list in sync with the filters.
 
-Some forms need a variable number of repeated fields — ingredients, steps, phone numbers. `useFieldArray` manages that array for you: it gives you the current `fields` array (each with a stable `id`), plus `append` and `remove` functions.
-
-The mental model: you can't just `useState<string[]>([])` and re-render inputs by index, because removing an item from the middle would shift every input after it and confuse React's reconciliation. `useFieldArray` solves this by generating a stable key per row that survives insertions/removals.
+The mental model: the dependency array isn't a performance optimization you tack on at the end — it's the actual list of "things this effect cares about." If you filter by tags but forget `selectedTags` in the array, toggling a tag would update the UI checkboxes but never actually refetch — a very common and confusing bug.
 
 ```tsx
-import { useForm, useFieldArray } from 'react-hook-form';
-
-function PhoneListForm() {
-  const { control, register } = useForm({ defaultValues: { phones: [{ number: '' }] } });
-  const { fields, append, remove } = useFieldArray({ control, name: 'phones' });
-
-  return (
-    <div>
-      {fields.map((field, i) => (
-        <div key={field.id}>
-          <input {...register(`phones.${i}.number`)} />
-          <button type="button" onClick={() => remove(i)}>Remove</button>
-        </div>
-      ))}
-      <button type="button" onClick={() => append({ number: '' })}>Add phone</button>
-    </div>
-  );
-}
+useEffect(() => {
+  fetchResults({ search, sortBy });
+}, [search, sortBy]); // <- if you filter by more things, add them here too
 ```
 
-> **Note:** Always use `field.id` as the React `key`, never the array index. The index changes when you remove a middle item; `field.id` stays stable.
+> **Note:** ESLint's `react-hooks/exhaustive-deps` rule exists specifically to catch missing dependencies like this. Don't silence it without a very good reason.
 
-### 4. Status-based async state
+### 4. Resetting pagination when filters change
 
-Instead of three separate booleans (`isLoading`, `isError`, `isSuccess`) that can drift out of sync, model an async operation as one string: `'idle' | 'loading' | 'success' | 'error'`. Only one value is true at any moment, by construction — you can't accidentally have both `isLoading` and `isSuccess` true at once.
+There's a second, smaller `useEffect` in `RecipeList` whose only job is: whenever a filter or sort value changes, reset `page` back to `1`. Without this, changing your search term while sitting on page 5 would try to fetch "page 5 of the new, smaller filtered result set" — which might not even exist.
 
-This matters because bugs like "the skeleton and the data both show at once" almost always come from independent booleans getting out of sync. A single status variable makes invalid states unrepresentable.
+Why a separate effect instead of cramming it into the main fetch effect: it keeps the fetch effect focused on "how to fetch" and this one focused on "what state should reset," and it avoids a subtle bug where you'd need to fetch page 1 *and* the old page in the same tick.
 
 ```tsx
-type Status = 'idle' | 'loading' | 'success' | 'error';
-
-function useStatus() {
-  const [status, setStatus] = useState<Status>('idle');
-  // ... setStatus('loading') before the fetch, 'success'/'error' after
-  return status;
-}
+useEffect(() => {
+  if (page !== 1) setPage(1);
+}, [search, tags, sortBy]); // any filter change forces back to page 1
 ```
 
-### 5. Dialogs/modals as conditional rendering
+### 5. Building query strings for a GET request
 
-A modal doesn't need its own "is open" boolean if you drive it from the data it displays. In this class's code, `EditRecipeDialog` only renders when `isEditing` (a `Recipe | null` in the parent) is truthy — mounting the component *is* opening the dialog, and setting the parent state to `null` unmounts (closes) it.
+`URLSearchParams` builds a correctly-encoded query string from your filter object, only including keys that actually have a value. This lives in `lib/api.ts` as `buildSearchQueryParams`, separate from the component that calls it.
 
-Why: it avoids a whole class of bugs where "which recipe is open" and "is the dialog open" get out of sync — there's only one source of truth, the selected recipe itself.
-
-```tsx
-function ParentWithModal() {
-  const [selected, setSelected] = useState<string | null>(null);
-
-  return (
-    <>
-      <button onClick={() => setSelected('item-1')}>Open</button>
-      {selected && <Modal item={selected} onClose={() => setSelected(null)} />}
-    </>
-  );
-}
-```
-
-### 6. Lifting state up and callback props
-
-When two sibling components need to share or react to the same piece of state, that state moves up to their closest common parent, which then passes it down as props — including callback functions the children call to request a change. The parent never lets a child mutate state directly; the child just "asks" via a function call.
-
-This is why `RecipeForm` takes an `onSuccess` callback instead of importing and calling `setPageInView` itself — it keeps `RecipeForm` reusable in any context (a full page, a dialog) because it doesn't know or care what happens after it succeeds.
-
-```tsx
-function Parent() {
-  const [count, setCount] = useState(0);
-  return <Child count={count} onIncrement={() => setCount(c => c + 1)} />;
-}
-
-function Child({ count, onIncrement }: { count: number; onIncrement: () => void }) {
-  return <button onClick={onIncrement}>{count}</button>;
-}
-```
-
-### 7. A service layer for API calls
-
-All `fetch` calls live in one file (`lib/api.ts`) instead of scattered across components. Each function handles the URL, headers, JSON parsing, and error handling once, and returns clean typed data. Components call `createRecipe(payload)` and never think about HTTP again.
-
-Why: `fetch` only rejects on network failure — a 404 or 500 still "resolves" successfully. If every component had to remember to check `response.ok` and parse the error body, that logic (and its bugs) would be duplicated everywhere. Centralizing it means you fix it once.
+The mental model: a GET request can't have a JSON body, so every parameter — search term, tags, sort field, page number — has to be serialized into the URL itself. `URLSearchParams` handles the encoding (spaces, special characters) so you never have to think about it manually.
 
 ```ts
-async function getUser(id: string) {
-  const res = await fetch(`/api/users/${id}`);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.message);
-  return data;
+function buildQuery(params: Record<string, string | number | undefined>) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  }
+  const str = query.toString();
+  return str ? `?${str}` : '';
 }
+```
+
+### 6. Multi-select filters (tags) with array state
+
+Selected tags live in an array of strings (`selectedTags`). Toggling a tag either adds it to the array (if not present) or filters it out (if present) — a pattern you'll reuse anywhere you need "any number of these can be selected at once."
+
+```tsx
+function toggleTag(tag: string, selected: string[], setSelected: (t: string[]) => void) {
+  setSelected(
+    selected.includes(tag) ? selected.filter(t => t !== tag) : [...selected, tag]
+  );
+}
+```
+
+> **Note:** Always create a *new* array (`.filter`, `[...spread]`) rather than mutating the existing one with `.push()` or `.splice()`. React compares state by reference — mutating in place means React can't tell anything changed, and your UI won't re-render.
+
+### 7. Sorting as derived query state
+
+Sort field (`sortBy`) and direction (`sortOrder`) are just more pieces of state that flow into the same `params` object as search and tags. There's nothing special about "sorting" architecturally — it's another filter that happens to change the order rather than the contents of the result set, and it belongs in the same dependency array as everything else.
+
+```tsx
+const [sortBy, setSortBy] = useState<'title' | 'createdAt'>('createdAt');
+const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+// both flow into fetchRecipes({ ...otherParams, sortBy, sortOrder })
 ```
 
 ---
 
 ## Theory
 
-**HTTP methods and idempotency.** `GET` (fetch) and `PUT`/`DELETE` are idempotent — calling them multiple times with the same input produces the same end state. `POST` (create) is not idempotent — calling it twice creates two records. `PATCH` is used here for partial updates (only send changed fields) rather than `PUT`, which conventionally replaces the whole resource. This is why `UpdateRecipe` is `Partial<CreateRecipe>` — it mirrors what PATCH semantically means.
+**Why debounce and not throttle?** Both limit how often something runs, but they solve different problems. **Debouncing** waits for a pause in activity before acting (ideal for search-as-you-type, where you only care about the *final* value). **Throttling** guarantees a function runs at most once per interval regardless of how often it's called (ideal for scroll or resize handlers, where you want steady, periodic updates *while* the activity continues). Search boxes almost always want debounce, not throttle.
 
-**Optimistic vs. pessimistic updates.** This app uses a *pessimistic* update pattern: after `deleteRecipe` or `updateRecipe` resolves, it re-fetches the whole list from the server (`fetchRecipes`) rather than updating local state directly. This guarantees the UI matches the server's truth but means a brief loading flash on every mutation. An *optimistic* update would update local state immediately (assuming success) and roll back only if the request fails — faster-feeling UI, more code to handle failure.
+**Race conditions in data fetching.** Imagine you type "p", then quickly "pa". Two requests fire (without debouncing): one for "p", one for "pa". If the network is slow and the "p" response arrives *after* the "pa" response, you'd overwrite the correct "pa" results with the stale "p" results. Debouncing reduces how often this can happen by cutting down the number of in-flight requests, but the fully correct fix is either an abort controller (cancel the previous fetch when a new one starts) or an "ignore stale response" flag set in your effect's cleanup function.
 
-**Why `fetch` doesn't throw on 404/500.** The Fetch API's promise only rejects for network-level failures (DNS failure, CORS block, connection refused). A response with any HTTP status code — including errors — is a "successful" fetch from the API's point of view. You must manually check `response.ok` (true for 200–299) and throw yourself if it's false. This trips up almost every beginner at least once.
+**Why the dependency array shouldn't be treated as optional.** `useEffect`'s second argument tells React "only re-run this effect if one of these values changed since the last render." Every value your effect *reads* from the component's scope (state, props) that can change over time should be listed. Omitting one doesn't cause an error — it causes a *stale closure* bug, where the effect keeps using an old value forever because it never re-runs to pick up the new one.
 
-**Form validation timing.** react-hook-form validates on submit by default (configurable to `onBlur`/`onChange`). Validating too aggressively (every keystroke) can feel naggy; validating only on submit can feel slow to give feedback. The `validate` custom function pattern (seen in the image URL field) lets you layer custom logic on top of built-in rules like `required`.
+**Cleanup functions prevent overlap.** Any `useEffect` that sets a timer, subscribes to something, or starts an async operation should return a cleanup function that undoes it. In `useDebounce`, `clearTimeout` in the cleanup is what guarantees only the *last* pending timer in a rapid sequence ever actually fires — every earlier one gets cancelled before it can run.
 
-**Reconciliation and keys in dynamic lists.** React's diffing algorithm matches old and new list items by `key`. If you use array index as a key in a list where items can be removed from the middle, React will misattribute state (e.g. an input's typed text) to the wrong row after a removal. This is why `useFieldArray` generates a stable `field.id` independent of position.
+**Pagination and filtering are coupled.** Page count is a function of the *filtered* result set, not the whole dataset. That's why changing a filter must reset `page` to `1` — otherwise you can end up requesting a page number that no longer exists once the result set has shrunk.
 
 ---
 
@@ -185,104 +151,119 @@ async function getUser(id: string) {
 
 | Topic | Link |
 |---|---|
-| Controlled components | https://react.dev/reference/react-dom/components/input#controlling-an-input-with-a-state-variable |
-| react-hook-form `useForm` | https://react-hook-form.com/docs/useform |
-| react-hook-form `useFieldArray` | https://react-hook-form.com/docs/usefieldarray |
+| `useEffect` and dependency arrays | https://react.dev/reference/react/useEffect |
+| Removing effect dependencies (the "stale closure" guide) | https://react.dev/learn/removing-effect-dependencies |
+| Custom Hooks (like `useDebounce`) | https://react.dev/learn/reusing-logic-with-custom-hooks |
+| Controlling an input with state | https://react.dev/reference/react-dom/components/input#controlling-an-input-with-a-state-variable |
+| `setTimeout` / `clearTimeout` | https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout |
+| `URLSearchParams` | https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams |
+| Fetch API | https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch |
+| Debounce vs. throttle (conceptual overview) | https://css-tricks.com/debouncing-throttling-explained-examples/ |
 | Rendering lists and keys | https://react.dev/learn/rendering-lists |
 | Conditional rendering | https://react.dev/learn/conditional-rendering |
-| Sharing state between components (lifting state up) | https://react.dev/learn/sharing-state-between-components |
-| `useEffect` for data fetching | https://react.dev/reference/react/useEffect |
-| Fetch API | https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch |
-| HTTP request methods (GET/POST/PATCH/DELETE) | https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods |
-| HTTP idempotency | https://developer.mozilla.org/en-US/docs/Glossary/Idempotent |
-| TypeScript utility types (`Partial<T>`) | https://www.typescriptlang.org/docs/handbook/utility-types.html#partialtype |
-| Vite env variables | https://vite.dev/guide/env-and-mode |
-| Radix UI Dialog (used under shadcn's Dialog) | https://www.radix-ui.com/primitives/docs/components/dialog |
+| Vite environment variables | https://vite.dev/guide/env-and-mode |
 
 ---
 
 ## Mini Examples
 
-**1. A tiny controlled search box with debounced state (a common pattern the in-class search input is missing):**
-
-```tsx
-import { useState, useEffect } from 'react';
-
-function SearchBox({ onSearch }: { onSearch: (term: string) => void }) {
-  const [term, setTerm] = useState('');
-
-  useEffect(() => {
-    const timeout = setTimeout(() => onSearch(term), 300); // wait 300ms after typing stops
-    return () => clearTimeout(timeout); // cancel the pending call if the user types again
-  }, [term, onSearch]);
-
-  return <input value={term} onChange={e => setTerm(e.target.value)} placeholder="Search..." />;
-}
-```
-
-**2. A minimal status-driven fetch, outside of a recipe context:**
+**1. A debounced search hook used against a fake API, outside of the recipe context:**
 
 ```tsx
 import { useEffect, useState } from 'react';
 
-function UserProfile({ id }: { id: string }) {
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [user, setUser] = useState<{ name: string } | null>(null);
+function useDebouncedValue<T>(value: T, delay = 300) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+  }, [value, delay]);
+  return debounced;
+}
+
+function UserSearch() {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, 300);
 
   useEffect(() => {
-    setStatus('loading');
-    fetch(`/api/users/${id}`)
-      .then(res => res.json())
-      .then(data => { setUser(data); setStatus('success'); })
-      .catch(() => setStatus('error'));
-  }, [id]);
+    if (!debouncedQuery) return;
+    fetch(`/api/users?search=${debouncedQuery}`);
+  }, [debouncedQuery]);
 
-  if (status === 'loading') return <p>Loading...</p>;
-  if (status === 'error') return <p>Something went wrong.</p>;
-  return <p>{user?.name}</p>;
+  return <input value={query} onChange={e => setQuery(e.target.value)} />;
 }
 ```
 
-**3. A generic confirm-delete pattern with a callback prop:**
+**2. A minimal "reset page on filter change" pattern for a generic table:**
 
 ```tsx
-function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
-  const [confirming, setConfirming] = useState(false);
+import { useEffect, useState } from 'react';
 
-  if (confirming) {
-    return (
-      <>
-        <button onClick={onConfirm}>Yes, delete</button>
-        <button onClick={() => setConfirming(false)}>Cancel</button>
-      </>
+function useResettablePage(filters: unknown[]) {
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, filters); // re-run (and reset) whenever any filter value changes
+  return [page, setPage] as const;
+}
+```
+
+**3. A tiny multi-select checkbox list using array toggle state:**
+
+```tsx
+import { useState } from 'react';
+
+function CategoryFilter({ categories }: { categories: string[] }) {
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggle = (category: string) => {
+    setSelected(current =>
+      current.includes(category)
+        ? current.filter(c => c !== category)
+        : [...current, category],
     );
-  }
-  return <button onClick={() => setConfirming(true)}>Delete</button>;
-}
-```
-
-**4. A minimal `useFieldArray` example for a to-do list form:**
-
-```tsx
-import { useForm, useFieldArray } from 'react-hook-form';
-
-function TodoForm() {
-  const { control, register, handleSubmit } = useForm({
-    defaultValues: { todos: [{ text: '' }] },
-  });
-  const { fields, append, remove } = useFieldArray({ control, name: 'todos' });
+  };
 
   return (
-    <form onSubmit={handleSubmit(data => console.log(data))}>
-      {fields.map((field, i) => (
-        <div key={field.id}>
-          <input {...register(`todos.${i}.text`)} />
-          <button type="button" onClick={() => remove(i)}>x</button>
-        </div>
+    <ul>
+      {categories.map(category => (
+        <li key={category}>
+          <label>
+            <input
+              type="checkbox"
+              checked={selected.includes(category)}
+              onChange={() => toggle(category)}
+            />
+            {category}
+          </label>
+        </li>
       ))}
-      <button type="button" onClick={() => append({ text: '' })}>+ Add todo</button>
-    </form>
+    </ul>
   );
+}
+```
+
+**4. Cancelling a stale fetch response with `AbortController`, an alternative to relying on debounce alone:**
+
+```tsx
+import { useEffect, useState } from 'react';
+
+function LiveResults({ query }: { query: string }) {
+  const [results, setResults] = useState<string[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/search?q=${query}`, { signal: controller.signal })
+      .then(res => res.json())
+      .then(setResults)
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error(err);
+      });
+    return () => controller.abort(); // cancel this request if `query` changes again
+  }, [query]);
+
+  return <ul>{results.map(r => <li key={r}>{r}</li>)}</ul>;
 }
 ```
 
@@ -290,12 +271,16 @@ function TodoForm() {
 
 ## Practice Exercises
 
-**Beginner — Wire up the search input.** The search box in `RecipeList.tsx` currently does nothing. Add a `search` state variable, include it in the `params` object passed to `fetchRecipes`, and add it to the `useEffect` dependency array so typing (on submit, or with a small debounce) refetches the list.
+**Beginner — Add a "clear filters" button.** Add a single button above the recipe grid that resets `searchTerm`, `selectedTags`, `maxPrepMin`, `sortBy`, and `sortOrder` all back to their defaults in one click.
 
-**Beginner — Add a "clear form" button.** In `RecipeForm`, add a button next to "Save recipe" that calls `reset()` to clear all fields back to their defaults without submitting.
+**Beginner — Show a "no results" message.** When `status === 'success'` and `recipes.length === 0`, render a friendly empty state (e.g. "No recipes match your filters") instead of an empty grid.
 
-**Intermediate — Add optimistic delete.** Change `handleDeleteRecipe` in `RecipeList.tsx` to remove the recipe from local state immediately (`setRecipes(prev => prev.filter(r => r.id !== id))`) before the API call resolves, and roll back (re-fetch or re-add it) if the request fails. Compare how much snappier this feels versus the current re-fetch-after-delete approach.
+**Intermediate — Debounce the max-prep-time filter too.** Right now `maxPrepMin` triggers an immediate refetch on every change. Run it through `useDebounce` the same way `searchTerm` does, so rapidly changing the number doesn't spam the API.
 
-**Intermediate — Add a "duplicate recipe" feature.** Add a "Duplicate" button on each `Recipe` card that calls `createRecipe` with the same data (minus the `id`) and a modified title like `"{title} (copy)"`, then refreshes the list.
+**Intermediate — Persist filters in the URL.** Use `URLSearchParams` (or a router's search-params hook) to sync `searchTerm`, `selectedTags`, and `sortBy` into the browser URL, so refreshing the page or sharing a link preserves the current filters.
 
-**Challenge — Add sorting and pagination.** The `RecipesQueryParams` type already supports `sortBy`, `sortOrder`, and `page`/`limit`. Add UI controls (a dropdown for sort field/direction, "Next/Previous" buttons for pages) that update state and pass through to `fetchRecipes`. You'll need to handle the loading state carefully so pagination doesn't flash a full-page skeleton on every page change.
+**Challenge — Add request cancellation.** Modify `fetchRecipes` in `lib/api.ts` to accept an `AbortSignal`, and update the fetch effect in `RecipeList` to create an `AbortController` per effect run and abort it in the cleanup function. This fully eliminates the race-condition risk described in the Theory section, even without debouncing.
+
+---
+
+> **Keep going!** Search, filtering, and pagination together are one of the most common feature sets you'll build in real apps — mastering the "controlled input → debounce → effect → fetch" chain here will pay off in almost every project you touch next. See you in Class 07! 🚀
