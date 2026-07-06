@@ -1,9 +1,9 @@
 // `import type` tells TypeScript (and bundlers) this import is purely a type — no runtime value.
 // It's a good practice: it makes imports self-documenting and can improve build performance.
-import { useFavorites } from '../context/favorites-context';
-import type { Recipe, Recipe as RecipeType } from '../types/recipe';
-import TagList from './TagList';
-import { Button } from './ui/button';
+import { useFavorites } from '../../context/favorites-context';
+import type { Recipe, Recipe as RecipeType } from '../../types/recipe';
+import TagList from '../TagList';
+import { Button } from '../ui/button';
 
 // Renaming the type to RecipeType avoids a name conflict — we can't call both the component and
 // the type "Recipe" in the same file. A common convention: suffix the type with "Type" or "Props".

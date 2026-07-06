@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import RecipeForm from './components/RecipeForm';
-import RecipeList from './components/RecipeList';
+import RecipeList from './components/recipe-list/RecipeList';
 import NavBar from './components/Navbar';
 import { ThemeProvider } from './context/ThemeContext';
 import { ThemeShell } from './components/ThemeShell';

@@ -1,26 +1,31 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type SetStateAction } from 'react';
 import RecipeCard from './RecipeCard';
 // Renaming the imported type avoids a name conflict with the Recipe component above.
-import type { Recipe, SortBy, SortDirection } from '../types/recipe';
-import { fetchRecipes, deleteRecipe } from '../lib/api';
-import type { HttpStatus } from '../types/http-status';
-import EditRecipeDialog from './EditRecipeDialog';
-import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group';
+import type { Recipe, SortBy, SortDirection } from '../../types/recipe';
+import { fetchRecipes, deleteRecipe } from '../../lib/api';
+import type { HttpStatus } from '../../types/http-status';
+import EditRecipeDialog from '../EditRecipeDialog';
+import {
+	InputGroup,
+	InputGroupAddon,
+	InputGroupInput,
+} from '../ui/input-group';
 import { Search } from 'lucide-react';
-import { useDebounce } from '../hooks/useDebounce';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Label } from './ui/label';
-import { Input } from './ui/input';
+import { useDebounce } from '../../hooks/useDebounce';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from './ui/select';
-
-const PAGE_SIZE_OPTIONS = [6, 12, 24, 48, 96];
+} from '../ui/select';
+import RecipeSearchSection from './RecipeSearchSection';
+import RecipeStatus from './RecipeStatus';
+import RecipePagination from './RecipePagination';
 
 function RecipeList() {
 	const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -43,13 +48,6 @@ function RecipeList() {
 	const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
 	const [isEditing, setIsEditing] = useState<Recipe | null>();
-
-	const SORT_OPTIONS: { value: SortBy; label: string }[] = [
-		{ value: 'createdAt', label: 'Newest' },
-		{ value: 'title', label: 'Title' },
-		{ value: 'prepMinutes', label: 'Prep time' },
-		{ value: 'servings', label: 'Servings' },
-	];
 
 	const handleDeleteRecipe = async (id: string) => {
 		setStatus('loading');
@@ -141,106 +139,29 @@ function RecipeList() {
 			{/* Controlled input: value comes from `searchTerm` state, onChange writes back to it.
 					Note we pass `debouncedSearchTerm` (not `searchTerm`) into the fetch effect below —
 					that's what stops a network request firing on every single keystroke. */}
-			<InputGroup>
-				<InputGroupInput
-					value={searchTerm}
-					onChange={e => setSearchTerm(e.target.value)}
-					placeholder='Search for a recipe...'
-					type='search'
-				/>
-				<InputGroupAddon align='inline-start'>
-					<Search />
-				</InputGroupAddon>
-			</InputGroup>
 
-			<div className='space-y-1'>
-				<Label htmlFor='max-prep-min'>Max pep (min)</Label>
-				<Input
-					id='max-prep-min'
-					type='number'
-					min={1}
-					value={maxPrepMin}
-					onChange={e => setMaxPrepMin(Number(e.target.value))}
-				/>
-			</div>
-
-			<div className='space-y-1'>
-				<Label>Sort by</Label>
-				<div className='flex gap-2'>
-					<Select
-						value={sortBy}
-						onValueChange={value => setSortBy(value as SortBy)}>
-						<SelectTrigger className='w-full'>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{SORT_OPTIONS.map(option => (
-								<SelectItem key={option.value} value={option.value}>
-									{option.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Button
-						type='button'
-						variant='outline'
-						title='Toggle sort direction'
-						onClick={() =>
-							setSortOrder(currentOrder =>
-								currentOrder === 'ASC' ? 'DESC' : 'ASC',
-							)
-						}>
-						{sortOrder === 'ASC' ? '↑' : '↓'}
-					</Button>
-				</div>
-			</div>
-
-			{availableTags.length > 0 && (
-				<div className='flex flex-wrap items-center gap-2'>
-					{availableTags.map(tag => {
-						const isSelected = selectedTags.includes(tag);
-						return (
-							<button onClick={() => onTagToggle(tag)} key={tag} type='button'>
-								<Badge variant={isSelected ? 'outline' : 'default'}>
-									{tag}
-								</Badge>
-							</button>
-						);
-					})}
-					{selectedTags.length > 0 && (
-						<Button
-							type='button'
-							variant='link'
-							size='sm'
-							onClick={() => setSelectedTags([])}>
-							clear tags
-						</Button>
-					)}
-				</div>
-			)}
-
+			<RecipeSearchSection
+				searchTerm={searchTerm}
+				setSearchTerm={setSearchTerm}
+				maxPrepMin={maxPrepMin}
+				setMaxPrepMin={setMaxPrepMin}
+				sortBy={sortBy}
+				setSortBy={setSortBy}
+				sortOrder={sortOrder}
+				setSortOrder={setSortOrder}
+				availableTags={availableTags}
+				selectedTags={selectedTags}
+				setSelectedTags={setSelectedTags}
+				onTagToggle={onTagToggle}
+			/>
 			{/* Conditional rendering by status — each branch is only active for one state. */}
-			{status === 'success' && (
-				<p className='text-sm text-slate-500 dark:text-slate-300'>
-					Showing {recipes.length} out of {total} recipes
-				</p>
-			)}
 
-			{status === 'loading' && (
-				<div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
-					{/* Array.from({ length: 6 }) creates an array of 6 empty slots — a quick
-							way to render N placeholder skeleton cards without storing count in state. */}
-					{Array.from({ length: 6 }).map((_, i) => (
-						<div key={i} className='h-64 rounded-xl bg-slate-300' />
-					))}
-				</div>
-			)}
-
-			{status === 'error' && (
-				<p className='text-red-700 p-4 text-sm bg-red-50 border-red-200 border rounded-xl dark:bg-red-900/20 dark:border-red-700 dark:text-red-300'>
-					{error}
-				</p>
-			)}
+			<RecipeStatus
+				recipesLength={recipes.length}
+				total={total}
+				status={status}
+				error={error}
+			/>
 			{/* This grid is always rendered — it's just empty while loading/error.
 					When status becomes 'success', recipes fills in and the grid populates. */}
 			<div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
@@ -255,43 +176,13 @@ function RecipeList() {
 				))}
 			</div>
 
-			<div className='flex items-center justify-center gap-4'>
-				<Button
-					variant='outline'
-					disabled={page === 1}
-					onClick={() => {
-						setPage(currentPage => Math.max(1, currentPage - 1));
-					}}>
-					← Previous
-				</Button>
-				<span>
-					Page {page} / {totalPages}
-				</span>
-				<Button
-					variant='outline'
-					disabled={page === totalPages}
-					onClick={() =>
-						setPage(currentPage => Math.min(totalPages, currentPage + 1))
-					}>
-					Next →
-				</Button>
-				<div className='max-w-md'>
-					<Select
-						value={String(limit)}
-						onValueChange={value => setLimit(Number(value))}>
-						<SelectTrigger className='w-full'>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{PAGE_SIZE_OPTIONS.map(option => (
-								<SelectItem key={option} value={String(option)}>
-									{option}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-			</div>
+			<RecipePagination
+				page={page}
+				setPage={setPage}
+				totalPages={totalPages}
+				limit={limit}
+				setLimit={setLimit}
+			/>
 
 			{isEditing && (
 				<EditRecipeDialog

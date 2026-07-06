@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Recipe } from '../types/recipe';
-import RecipeCard from './RecipeCard';
+import RecipeCard from './recipe-list/RecipeCard';
 import { fetchRecipes } from '../lib/api';
 import { useFavorites } from '../context/favorites-context';
 
