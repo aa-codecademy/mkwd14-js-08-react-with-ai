@@ -4,16 +4,17 @@ import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/theme-context';
 
 // trivial to add a new page — just add a new object here, no HTML to duplicate.
-const NAV_ITEMS: { id: 'home' | 'form'; label: string }[] = [
+const NAV_ITEMS: { id: 'home' | 'form' | 'favorites'; label: string }[] = [
 	{ id: 'home', label: 'Home' },
 	{ id: 'form', label: 'Add recipe' },
+	{ id: 'favorites', label: 'Favorites' },
 ];
 
 type NavBarProps = {
 	pageInView: string;
 	// onPageSelect is a callback prop — the parent (App) owns the state, NavBar just signals what was clicked.
 	// This is the "lift state up" pattern: shared state lives in the closest common ancestor.
-	onPageSelect: (page: 'form' | 'home') => void;
+	onPageSelect: (page: 'form' | 'home' | 'favorites') => void;
 };
 
 function NavBar({ pageInView, onPageSelect }: NavBarProps) {

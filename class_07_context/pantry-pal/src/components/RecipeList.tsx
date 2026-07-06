@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
-import Recipe from './Recipe';
+import RecipeCard from './RecipeCard';
 // Renaming the imported type avoids a name conflict with the Recipe component above.
-import type {
-	Recipe as RecipeType,
-	SortBy,
-	SortDirection,
-} from '../types/recipe';
+import type { Recipe, SortBy, SortDirection } from '../types/recipe';
 import { fetchRecipes, deleteRecipe } from '../lib/api';
 import type { HttpStatus } from '../types/http-status';
 import EditRecipeDialog from './EditRecipeDialog';
@@ -27,7 +23,7 @@ import {
 const PAGE_SIZE_OPTIONS = [6, 12, 24, 48, 96];
 
 function RecipeList() {
-	const [recipes, setRecipes] = useState<RecipeType[]>([]);
+	const [recipes, setRecipes] = useState<Recipe[]>([]);
 	const [availableTags, setAvailableTags] = useState<string[]>([]);
 	const [selectedTags, setSelectedTags] = useState<string[]>([]);
 	const [maxPrepMin, setMaxPrepMin] = useState<number | undefined>(undefined);
@@ -46,7 +42,7 @@ function RecipeList() {
 	const [searchTerm, setSearchTerm] = useState('');
 	const debouncedSearchTerm = useDebounce(searchTerm, 400);
 
-	const [isEditing, setIsEditing] = useState<RecipeType | null>();
+	const [isEditing, setIsEditing] = useState<Recipe | null>();
 
 	const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 		{ value: 'createdAt', label: 'Newest' },
@@ -225,7 +221,7 @@ function RecipeList() {
 
 			{/* Conditional rendering by status — each branch is only active for one state. */}
 			{status === 'success' && (
-				<p className='text-sm text-slate-500'>
+				<p className='text-sm text-slate-500 dark:text-slate-300'>
 					Showing {recipes.length} out of {total} recipes
 				</p>
 			)}
@@ -241,7 +237,7 @@ function RecipeList() {
 			)}
 
 			{status === 'error' && (
-				<p className='text-red-700 p-4 text-sm bg-red-50 border-red-200 border rounded-xl'>
+				<p className='text-red-700 p-4 text-sm bg-red-50 border-red-200 border rounded-xl dark:bg-red-900/20 dark:border-red-700 dark:text-red-300'>
 					{error}
 				</p>
 			)}
@@ -250,7 +246,7 @@ function RecipeList() {
 			<div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
 				{recipes.map(recipe => (
 					// recipe.id is a stable string ID from the database — safe to use as key.
-					<Recipe
+					<RecipeCard
 						key={recipe.id}
 						recipe={recipe}
 						handleDeleteRecipe={handleDeleteRecipe}

@@ -4,14 +4,18 @@ import RecipeList from './components/RecipeList';
 import NavBar from './components/Navbar';
 import { ThemeProvider } from './context/ThemeContext';
 import { ThemeShell } from './components/ThemeShell';
+import { FavoritesProvider } from './context/FavoritesContext';
+import FavoritesPages from './components/FavoritesPage';
 
 function App() {
-	const [pageInView, setPageInView] = useState<'home' | 'form'>('home');
+	const [pageInView, setPageInView] = useState<'home' | 'form' | 'favorites'>(
+		'home',
+	);
 
 	return (
-		<ThemeProvider>
-			<ThemeShell>
-				<div className='min-h-screen bg-linear-to-b from-brand-50 to-white'>
+		<FavoritesProvider>
+			<ThemeProvider>
+				<ThemeShell>
 					<NavBar
 						pageInView={pageInView}
 						onPageSelect={page => setPageInView(page)}
@@ -23,10 +27,12 @@ function App() {
 						{pageInView === 'form' && (
 							<RecipeForm onSuccess={() => setPageInView('home')} />
 						)}
+
+						{pageInView === 'favorites' && <FavoritesPages />}
 					</main>
-				</div>
-			</ThemeShell>
-		</ThemeProvider>
+				</ThemeShell>
+			</ThemeProvider>
+		</FavoritesProvider>
 	);
 }
 

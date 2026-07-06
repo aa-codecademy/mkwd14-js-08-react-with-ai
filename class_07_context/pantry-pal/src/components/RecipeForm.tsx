@@ -57,10 +57,10 @@ const URL_PATTERN =
 
 // Shared class name strings extracted into constants — the DRY principle applied to Tailwind.
 // If you need to update the label style, you change it in one place, not 10.
-const LABEL_CLASSES = 'block text-sm font-medium text-slate-700';
+const LABEL_CLASSES = 'block text-sm font-medium text-slate-700 dark:text-emerald-200';
 
 const INPUT_CLASSES =
-	'mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20';
+	'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:focus:border-brand-400';
 
 const ERROR_FIELD_CLASSES = 'mt-1 text-xs text-red-600';
 
@@ -155,8 +155,8 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 		// handleSubmit intercepts the submit event, runs validation, then calls onSubmit if all rules pass.
 		<form
 			onSubmit={handleSubmit(onSubmit)}
-			className='space-y-4 rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm'>
-			<h2 className='text-lg font-semibold text-brand-900'>
+			className='space-y-4 rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100'>
+			<h2 className='text-lg font-semibold text-brand-900 dark:text-emerald-100'>
 				{isEditing ? 'Edit recipe' : 'Add a recipe'}
 			</h2>
 
@@ -266,7 +266,7 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 					    causes the form to submit prematurely when the user clicks "+ Add ingredient". */}
 					<button
 						onClick={() => ingredientsAppend({ name: '', amount: '' })}
-						className='text-xs font-medium text-brand-500 hover:text-brand-700 cursor-pointer'
+						className='text-xs font-medium text-brand-500 hover:text-brand-700 cursor-pointer dark:text-emerald-200 dark:hover:text-emerald-100'
 						type='button'>
 						+ Add ingredient
 					</button>
@@ -282,12 +282,12 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 							<input
 								placeholder='ingredient'
 								{...register(`ingredients.${index}.name`)}
-								className='min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20'
+								className='min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:focus:border-brand-400'
 							/>
 							<input
 								placeholder='amount'
 								{...register(`ingredients.${index}.amount`)}
-								className='w-24 rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20'
+								className='w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition-all duration-200 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:focus:border-brand-400'
 							/>
 							{/* Only show the remove button when there is more than one ingredient.
 							    We always keep at least one row so the form isn't confusingly empty. */}
@@ -296,7 +296,7 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 									type='button'
 									onClick={() => ingredientsRemove(index)}
 									aria-label='Remove ingredient'
-									className='px-1 text-slate-400 hover:text-red-500'>
+									className='px-1 text-slate-400 hover:text-red-500 dark:text-slate-300 dark:hover:text-red-400'>
 									x
 								</button>
 							)}
@@ -309,7 +309,7 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 				<div className='mb-2 flex items-center justify-between'>
 					<label className={LABEL_CLASSES}>Steps</label>
 					<button
-						className='text-xs font-medium text-brand-500 hover:text-brand-700'
+						className='text-xs font-medium text-brand-500 hover:text-brand-700 dark:text-emerald-200 dark:hover:text-emerald-100'
 						type='button'
 						onClick={() => stepsAppend({ text: '' })}>
 						+ Add step
@@ -320,7 +320,7 @@ function RecipeForm({ recipe, onSuccess, onClose }: RecipeFormProps) {
 						// field.id (not index) as key — react-hook-form guarantees this is stable across removals.
 						<div key={field.id} className='flex gap-2'>
 							{/* Visual step number — derived from the index, not stored in state. */}
-							<span className='mt-2 text-xs font-medium text-slate-400 '>
+							<span className='mt-2 text-xs font-medium text-slate-400 dark:text-slate-300'>
 								{index + 1}
 							</span>
 							<input

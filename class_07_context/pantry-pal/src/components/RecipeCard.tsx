@@ -1,5 +1,6 @@
 // `import type` tells TypeScript (and bundlers) this import is purely a type — no runtime value.
 // It's a good practice: it makes imports self-documenting and can improve build performance.
+import { useFavorites } from '../context/favorites-context';
 import type { Recipe, Recipe as RecipeType } from '../types/recipe';
 import TagList from './TagList';
 import { Button } from './ui/button';
@@ -14,11 +15,25 @@ type RecipeProps = {
 
 // Component composition: Recipe renders TagList as a child.
 // Each component stays focused on one job — Recipe lays out the card, TagList handles the tag list.
-function Recipe({ recipe, handleDeleteRecipe, handleIsEditing }: RecipeProps) {
+function RecipeCard({
+	recipe,
+	handleDeleteRecipe,
+	handleIsEditing,
+}: RecipeProps) {
+	const { isFavorite, toggleFavorite } = useFavorites();
+
+	const isInFavorites = isFavorite(recipe.id);
+
 	return (
 		// `article` is a semantic HTML element for self-contained content (a blog post, a product card, etc.).
 		// Using the right HTML element matters for accessibility and SEO — screen readers understand article.
-		<article className='flex flex-col overflow-hidden rounded-2xl border-emerald-100 bg-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 dark:bg-slate-800'>
+		<article className='group relative flex flex-col overflow-hidden rounded-2xl border-emerald-100 bg-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 dark:bg-slate-800'>
+			<button
+				type='button'
+				onClick={() => toggleFavorite(recipe.id)}
+				className='absolute right-3 top-3 z-10 rounded-full bg-white/90 px-2.5 text-lg text-rose-500 shadow-md transition-transform duration-200 hover:scale-110 active:scale-95 dark:bg-slate-900/90'>
+				{isInFavorites ? '♥' : '♡'}
+			</button>
 			<img
 				src={recipe.imageUrl}
 				alt={recipe.title}
@@ -58,4 +73,4 @@ function Recipe({ recipe, handleDeleteRecipe, handleIsEditing }: RecipeProps) {
 	);
 }
 
-export default Recipe;
+export default RecipeCard;
