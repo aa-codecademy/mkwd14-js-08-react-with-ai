@@ -6,6 +6,8 @@ import { useFavorites } from '../context/favorites-context';
 
 function FavoritesPages() {
 	const [recipes, setRecipes] = useState<Recipe[]>([]);
+	// This component isn't a child of RecipeCard/RecipeList — without Context, favoritesIds
+	// would have to be lifted all the way to App and threaded down as props through everything.
 	const { favoritesIds } = useFavorites();
 
 	useEffect(() => {

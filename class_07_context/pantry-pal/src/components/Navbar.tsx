@@ -18,6 +18,8 @@ type NavBarProps = {
 };
 
 function NavBar({ pageInView, onPageSelect }: NavBarProps) {
+	// theme/toggleTheme come from Context, not props — NavBar is nowhere near ThemeProvider
+	// in JSX terms here, but it can still read the value because it renders inside it (see App.tsx).
 	const { theme, toggleTheme } = useTheme();
 
 	return (

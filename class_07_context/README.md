@@ -1,286 +1,274 @@
-# Class 6 — Search, Debouncing & API Filtering
+# Class 07 — React Context
 
-Welcome back! In this class you take the recipe app from a simple list into a fully searchable, filterable, sortable, and paginated data table backed by a real API. You'll build a controlled search box that doesn't hammer the server on every keystroke (debouncing), wire up tag filters and a max-prep-time filter, add sortable columns, and implement page-based pagination — all driven by a single `useEffect` that re-fetches whenever any of those inputs change. Along the way you'll see why `useEffect`'s dependency array is the real engine behind "the UI automatically stays in sync with the filters."
+In the last class we built a search-and-pagination flow using controlled inputs and debouncing — all state lived in `RecipeList` and was passed down as props. In this class we hit the limits of that approach: theme (light/dark) and favorites needed to be read and updated from components that aren't parent/child of each other (`Navbar`, `RecipeCard`, `FavoritesPage`, `ThemeShell`). **React Context** solves exactly this problem — it lets you share a value across the component tree without threading it through every intermediate component as props ("prop drilling"). We built two contexts in `pantry-pal`: a `ThemeContext` for light/dark mode, and a `FavoritesContext` (persisted to `localStorage`) for favorited recipes.
 
 ---
 
 ## Table of Contents
 
-1. [Core Concepts covered in this class](#core-concepts-covered-in-this-class)
-   - [Debouncing user input](#1-debouncing-user-input)
-   - [Controlled search inputs](#2-controlled-search-inputs)
-   - [useEffect dependency arrays as "what triggers a refetch"](#3-useeffect-dependency-arrays-as-what-triggers-a-refetch)
-   - [Resetting pagination when filters change](#4-resetting-pagination-when-filters-change)
-   - [Building query strings for a GET request](#5-building-query-strings-for-a-get-request)
-   - [Multi-select filters (tags) with array state](#6-multi-select-filters-tags-with-array-state)
-   - [Sorting as derived query state](#7-sorting-as-derived-query-state)
-2. [Theory](#theory)
-3. [Useful Links](#useful-links)
-4. [Mini Examples](#mini-examples)
-5. [Practice Exercises](#practice-exercises)
+1. [Core Concepts](#1-core-concepts)
+   - [createContext and the Provider pattern](#createcontext-and-the-provider-pattern)
+   - [useContext and a custom hook wrapper](#usecontext-and-a-custom-hook-wrapper)
+   - [Splitting context files from Provider files](#splitting-context-files-from-provider-files)
+   - [Persisting context state with useLocalStorage](#persisting-context-state-with-uselocalstorage)
+   - [Combining Context with other patterns](#combining-context-with-other-patterns)
+2. [Theory — How Context Actually Works](#2-theory--how-context-actually-works)
+3. [Useful Links](#3-useful-links)
+4. [Mini Examples](#4-mini-examples)
+5. [Practice Exercises](#5-practice-exercises)
 
 ---
 
-## Core Concepts covered in this class
+## 1. Core Concepts
 
-### 1. Debouncing user input
+### createContext and the Provider pattern
 
-Debouncing delays acting on a fast-changing value until it *stops* changing for a set amount of time. When a user types "pasta" into a search box, without debouncing you'd fire five API requests (one per keystroke) and only the last one's result actually matters — the rest were wasted network calls that can even race each other and show stale results.
+**The problem:** without Context, sharing data between components means passing it as props through every component in between — even ones that don't use the value themselves, just pass it along. This is called **prop drilling**.
 
-The mental model: instead of reacting to every keystroke, you start a timer on each change and only "commit" the value once the timer completes uninterrupted. If the value changes again before the timer fires, you cancel the old timer and start a new one.
-
-```tsx
-import { useEffect, useState } from 'react';
-
-function useDebounce<T>(value: T, delayMs = 400) {
-  const [debounced, setDebounced] = useState(value);
-
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(id); // cancel if `value` changes again before delayMs elapses
-  }, [value, delayMs]);
-
-  return debounced;
-}
-```
-
-> **Note:** The cleanup function (`return () => clearTimeout(id)`) is what makes this work. Without it, every keystroke would schedule a new timeout that *also* fires, and you'd be back to firing a request per keystroke — just delayed.
-
-### 2. Controlled search inputs
-
-The search box's `value` is driven entirely by React state (`searchTerm`), and every keystroke updates that state via `onChange`. This is a **controlled component** — React state is the single source of truth, never the DOM.
-
-Why it matters here specifically: you need the raw, undebounced `searchTerm` to keep the input responsive as the user types (no lag rendering each character), while a *separate*, debounced copy of that value (`debouncedSearchTerm`) is what actually gets sent to the API. Splitting "what the input shows" from "what triggers a fetch" is the key insight of this pattern.
+**The mental model:** think of Context as a radio broadcast. `createContext` sets up the "channel." A `Provider` component "broadcasts" a value on that channel from somewhere near the top of the tree. Any descendant component can "tune in" and read the current value — no matter how deeply nested it is, and without any component in between knowing the broadcast is even happening.
 
 ```tsx
-function SearchInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+import { createContext, useState, type ReactNode } from 'react';
+
+// 1. Create the context — this is just a "channel," not a component.
+const CountContext = createContext<{ count: number; increment: () => void } | null>(null);
+
+// 2. A Provider component owns the actual state and broadcasts it.
+function CountProvider({ children }: { children: ReactNode }) {
+  const [count, setCount] = useState(0);
+  const increment = () => setCount(c => c + 1);
+
   return (
-    <input
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder="Search..."
-    />
+    <CountContext value={{ count, increment }}>
+      {children}
+    </CountContext>
   );
 }
 ```
 
-### 3. useEffect dependency arrays as "what triggers a refetch"
+> **Note:** In pantry-pal we use the newer `<Context value={...}>` JSX syntax (React 19). Older code you'll see online uses `<Context.Provider value={...}>` — both do the same thing.
 
-The data-fetching `useEffect` in `RecipeList` lists every filter/sort/pagination value in its dependency array: `[debouncedSearchTerm, selectedTags, maxPrepMin, sortBy, sortOrder, page, limit]`. React re-runs the effect whenever *any* of these change between renders — that's the entire mechanism that keeps the recipe list in sync with the filters.
+---
 
-The mental model: the dependency array isn't a performance optimization you tack on at the end — it's the actual list of "things this effect cares about." If you filter by tags but forget `selectedTags` in the array, toggling a tag would update the UI checkboxes but never actually refetch — a very common and confusing bug.
+### useContext and a custom hook wrapper
 
-```tsx
-useEffect(() => {
-  fetchResults({ search, sortBy });
-}, [search, sortBy]); // <- if you filter by more things, add them here too
-```
+Any descendant can read the broadcast value with `useContext(Context)` (or the newer `use(Context)`). But calling that directly everywhere has two downsides: consumers need to import the raw context object, and there's no guard against forgetting to render inside the Provider (you'd silently get the default value, e.g. `null`).
 
-> **Note:** ESLint's `react-hooks/exhaustive-deps` rule exists specifically to catch missing dependencies like this. Don't silence it without a very good reason.
-
-### 4. Resetting pagination when filters change
-
-There's a second, smaller `useEffect` in `RecipeList` whose only job is: whenever a filter or sort value changes, reset `page` back to `1`. Without this, changing your search term while sitting on page 5 would try to fetch "page 5 of the new, smaller filtered result set" — which might not even exist.
-
-Why a separate effect instead of cramming it into the main fetch effect: it keeps the fetch effect focused on "how to fetch" and this one focused on "what state should reset," and it avoids a subtle bug where you'd need to fetch page 1 *and* the old page in the same tick.
+The fix, used throughout `pantry-pal`, is a **custom hook wrapper**:
 
 ```tsx
-useEffect(() => {
-  if (page !== 1) setPage(1);
-}, [search, tags, sortBy]); // any filter change forces back to page 1
+import { use } from 'react';
+
+function useCount() {
+  const ctx = use(CountContext);
+
+  // Without a Provider ancestor, ctx is the default value passed to createContext (null here).
+  // Throwing early turns a silent bug into a clear, actionable error message.
+  if (!ctx) {
+    throw new Error('useCount must be used within a CountProvider');
+  }
+
+  return ctx;
+}
 ```
 
-### 5. Building query strings for a GET request
+Now every consumer just calls `useCount()` — simple, safe, and it hides the context object entirely (see `theme-context.ts` and `favorites-context.ts`).
 
-`URLSearchParams` builds a correctly-encoded query string from your filter object, only including keys that actually have a value. This lives in `lib/api.ts` as `buildSearchQueryParams`, separate from the component that calls it.
+---
 
-The mental model: a GET request can't have a JSON body, so every parameter — search term, tags, sort field, page number — has to be serialized into the URL itself. `URLSearchParams` handles the encoding (spaces, special characters) so you never have to think about it manually.
+### Splitting context files from Provider files
+
+In `pantry-pal`, each context has **two files**:
+
+| File | Exports |
+| --- | --- |
+| `context/theme-context.ts` | `ThemeContext`, `useTheme` (the hook) |
+| `context/ThemeContext.tsx` | `ThemeProvider` (the component) |
+
+> **Note:** This split exists because of **Vite's Fast Refresh** (Hot Module Replacement for React). Fast Refresh needs a file to export *only* React components to safely hot-reload it. A file that exports both a component (`ThemeProvider`) and non-component values (`ThemeContext`, `useTheme`) will still work, but Vite warns and falls back to a full page reload on every save — which defeats the purpose of HMR. Splitting the raw context + hook into a plain `.ts` file, and keeping only the component in the `.tsx` file, avoids the warning entirely.
+
+---
+
+### Persisting context state with useLocalStorage
+
+`FavoritesProvider` doesn't use plain `useState` — it uses a custom hook, `useLocalStorage`, that mirrors the `useState` API but also syncs to `localStorage`:
 
 ```ts
-function buildQuery(params: Record<string, string | number | undefined>) {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== '') query.set(key, String(value));
-  }
-  const str = query.toString();
-  return str ? `?${str}` : '';
+function useLocalStorage<T>(key: string, initialValue: T) {
+  const [value, setValue] = useState<T>(() => {
+    // Lazy initializer — runs once on mount, not on every render.
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : initialValue;
+    } catch {
+      return initialValue; // private browsing, corrupt JSON, storage disabled, etc.
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(value));
+  }, [key, value]);
+
+  return [value, setValue] as const;
 }
 ```
 
-### 6. Multi-select filters (tags) with array state
+Because the initial value is computed by a **function** (`() => {...}`) rather than a plain expression, React only runs that read-and-parse logic once — on the very first render — instead of on every re-render.
 
-Selected tags live in an array of strings (`selectedTags`). Toggling a tag either adds it to the array (if not present) or filters it out (if present) — a pattern you'll reuse anywhere you need "any number of these can be selected at once."
-
-```tsx
-function toggleTag(tag: string, selected: string[], setSelected: (t: string[]) => void) {
-  setSelected(
-    selected.includes(tag) ? selected.filter(t => t !== tag) : [...selected, tag]
-  );
-}
-```
-
-> **Note:** Always create a *new* array (`.filter`, `[...spread]`) rather than mutating the existing one with `.push()` or `.splice()`. React compares state by reference — mutating in place means React can't tell anything changed, and your UI won't re-render.
-
-### 7. Sorting as derived query state
-
-Sort field (`sortBy`) and direction (`sortOrder`) are just more pieces of state that flow into the same `params` object as search and tags. There's nothing special about "sorting" architecturally — it's another filter that happens to change the order rather than the contents of the result set, and it belongs in the same dependency array as everything else.
-
-```tsx
-const [sortBy, setSortBy] = useState<'title' | 'createdAt'>('createdAt');
-const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
-// both flow into fetchRecipes({ ...otherParams, sortBy, sortOrder })
-```
+> **Note:** This sync is one-way (state → storage). If you change `localStorage` in another browser tab, this tab won't automatically pick that up. Cross-tab sync would need a `storage` event listener.
 
 ---
 
-## Theory
+### Combining Context with other patterns
 
-**Why debounce and not throttle?** Both limit how often something runs, but they solve different problems. **Debouncing** waits for a pause in activity before acting (ideal for search-as-you-type, where you only care about the *final* value). **Throttling** guarantees a function runs at most once per interval regardless of how often it's called (ideal for scroll or resize handlers, where you want steady, periodic updates *while* the activity continues). Search boxes almost always want debounce, not throttle.
+Context isn't a replacement for props, state, or component composition — it's another tool that composes with them:
 
-**Race conditions in data fetching.** Imagine you type "p", then quickly "pa". Two requests fire (without debouncing): one for "p", one for "pa". If the network is slow and the "p" response arrives *after* the "pa" response, you'd overwrite the correct "pa" results with the stale "p" results. Debouncing reduces how often this can happen by cutting down the number of in-flight requests, but the fully correct fix is either an abort controller (cancel the previous fetch when a new one starts) or an "ignore stale response" flag set in your effect's cleanup function.
-
-**Why the dependency array shouldn't be treated as optional.** `useEffect`'s second argument tells React "only re-run this effect if one of these values changed since the last render." Every value your effect *reads* from the component's scope (state, props) that can change over time should be listed. Omitting one doesn't cause an error — it causes a *stale closure* bug, where the effect keeps using an old value forever because it never re-runs to pick up the new one.
-
-**Cleanup functions prevent overlap.** Any `useEffect` that sets a timer, subscribes to something, or starts an async operation should return a cleanup function that undoes it. In `useDebounce`, `clearTimeout` in the cleanup is what guarantees only the *last* pending timer in a rapid sequence ever actually fires — every earlier one gets cancelled before it can run.
-
-**Pagination and filtering are coupled.** Page count is a function of the *filtered* result set, not the whole dataset. That's why changing a filter must reset `page` to `1` — otherwise you can end up requesting a page number that no longer exists once the result set has shrunk.
+- `App.tsx` nests `<FavoritesProvider>` and `<ThemeProvider>` near the root, so everything below (`Navbar`, `RecipeList`, `RecipeCard`, `FavoritesPage`) can consume either context.
+- `RecipeCard` calls `useFavorites()` to read `isFavorite(recipe.id)` and call `toggleFavorite(recipe.id)` from a heart button — with **zero** favorites-related props passed from its parent (`RecipeList`).
+- `FavoritesPage` independently calls `useFavorites()` to read the current `favoritesIds` and filter the full recipe list — a completely separate branch of the tree, with no data relationship to `RecipeCard` other than the shared context.
+- `Navbar` still receives `pageInView`/`onPageSelect` as **plain props** (lifted state, not Context) because that state is only shared between `App` and `Navbar` — a direct parent/child relationship. Context is for values needed *broadly*, not a wholesale replacement for props.
 
 ---
 
-## Useful Links
+## 2. Theory — How Context Actually Works
 
-| Topic | Link |
-|---|---|
-| `useEffect` and dependency arrays | https://react.dev/reference/react/useEffect |
-| Removing effect dependencies (the "stale closure" guide) | https://react.dev/learn/removing-effect-dependencies |
-| Custom Hooks (like `useDebounce`) | https://react.dev/learn/reusing-logic-with-custom-hooks |
-| Controlling an input with state | https://react.dev/reference/react-dom/components/input#controlling-an-input-with-a-state-variable |
-| `setTimeout` / `clearTimeout` | https://developer.mozilla.org/en-US/docs/Web/API/Window/setTimeout |
-| `URLSearchParams` | https://developer.mozilla.org/en-US/docs/Web/API/URLSearchParams |
-| Fetch API | https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch |
-| Debounce vs. throttle (conceptual overview) | https://css-tricks.com/debouncing-throttling-explained-examples/ |
-| Rendering lists and keys | https://react.dev/learn/rendering-lists |
-| Conditional rendering | https://react.dev/learn/conditional-rendering |
-| Vite environment variables | https://vite.dev/guide/env-and-mode |
+**Re-renders on value change.** When a Provider's `value` prop changes (by reference), **every** descendant component that calls `useContext`/`use` on that context re-renders — even if it only reads one field of the value object that didn't change. This is because Context compares the whole value object, not individual fields.
+
+**The "new object every render" gotcha.** Both `ThemeProvider` and `FavoritesProvider` build their `value` as a fresh object literal on every render:
+
+```tsx
+return <ThemeContext value={{ theme, toggleTheme }}>{children}</ThemeContext>;
+```
+
+This object is a *new reference* every time `ThemeProvider` re-renders, so any consumer re-renders too — even if `theme` itself didn't change. At small scale (a handful of consumers) this is harmless. At larger scale, you'd wrap the value in `useMemo`:
+
+```tsx
+const value = useMemo(() => ({ theme, toggleTheme }), [theme]);
+```
+
+**When NOT to reach for Context.** Context is great for low-frequency, broadly-needed values: theme, current user/auth, locale, favorites, feature flags. It is a poor fit for **high-frequency updates** (e.g. mouse position, a live-typing text field, websocket ticks) shared across many components — every keystroke would re-render the entire subtree under the Provider. For that class of problem, dedicated state libraries (Zustand, Redux, Jotai) use subscription models that let components re-render only when the *specific slice* they read changes, not the whole context value.
+
+> **Note:** Context also isn't a performance optimization tool by itself — it's an escape hatch from prop drilling. If a component only needs a value because its child needs it, passing it as a prop is still simpler and easier to trace than Context, *until* you have components at very different depths/branches that all need the same value.
 
 ---
 
-## Mini Examples
+## 3. Useful Links
 
-**1. A debounced search hook used against a fake API, outside of the recipe context:**
+| Resource | Link |
+| --- | --- |
+| React docs — `createContext` | https://react.dev/reference/react/createContext |
+| React docs — `useContext` | https://react.dev/reference/react/useContext |
+| React docs — Passing Data Deeply with Context | https://react.dev/learn/passing-data-deeply-with-context |
+| React docs — Scaling Up with Reducer and Context | https://react.dev/learn/scaling-up-with-reducer-and-context |
+| MDN — `localStorage` | https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage |
+| MDN — `JSON.parse` / `JSON.stringify` | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON |
+| Vite docs — Fast Refresh caveats | https://vite.dev/guide/features.html#hot-module-replacement |
 
-```tsx
-import { useEffect, useState } from 'react';
+---
 
-function useDebouncedValue<T>(value: T, delay = 300) {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(id);
-  }, [value, delay]);
-  return debounced;
-}
+## 4. Mini Examples
 
-function UserSearch() {
-  const [query, setQuery] = useState('');
-  const debouncedQuery = useDebouncedValue(query, 300);
+These use different domains than the in-class code (recipes/theme/favorites) so you can see the same *pattern* applied elsewhere.
 
-  useEffect(() => {
-    if (!debouncedQuery) return;
-    fetch(`/api/users?search=${debouncedQuery}`);
-  }, [debouncedQuery]);
-
-  return <input value={query} onChange={e => setQuery(e.target.value)} />;
-}
-```
-
-**2. A minimal "reset page on filter change" pattern for a generic table:**
+**A. Simple counter context**
 
 ```tsx
-import { useEffect, useState } from 'react';
+import { createContext, use, useState, type ReactNode } from 'react';
 
-function useResettablePage(filters: unknown[]) {
-  const [page, setPage] = useState(1);
-  useEffect(() => {
-    setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, filters); // re-run (and reset) whenever any filter value changes
-  return [page, setPage] as const;
-}
-```
+const CounterContext = createContext<{ count: number; inc: () => void } | null>(null);
 
-**3. A tiny multi-select checkbox list using array toggle state:**
-
-```tsx
-import { useState } from 'react';
-
-function CategoryFilter({ categories }: { categories: string[] }) {
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const toggle = (category: string) => {
-    setSelected(current =>
-      current.includes(category)
-        ? current.filter(c => c !== category)
-        : [...current, category],
-    );
-  };
-
+export function CounterProvider({ children }: { children: ReactNode }) {
+  const [count, setCount] = useState(0);
   return (
-    <ul>
-      {categories.map(category => (
-        <li key={category}>
-          <label>
-            <input
-              type="checkbox"
-              checked={selected.includes(category)}
-              onChange={() => toggle(category)}
-            />
-            {category}
-          </label>
-        </li>
-      ))}
-    </ul>
+    <CounterContext value={{ count, inc: () => setCount(c => c + 1) }}>
+      {children}
+    </CounterContext>
   );
 }
+
+export function useCounter() {
+  const ctx = use(CounterContext);
+  if (!ctx) throw new Error('useCounter must be used within CounterProvider');
+  return ctx;
+}
 ```
 
-**4. Cancelling a stale fetch response with `AbortController`, an alternative to relying on debounce alone:**
+**B. Auth context (fake login)**
 
 ```tsx
-import { useEffect, useState } from 'react';
+import { createContext, use, useState, type ReactNode } from 'react';
 
-function LiveResults({ query }: { query: string }) {
-  const [results, setResults] = useState<string[]>([]);
+type User = { name: string } | null;
+const AuthContext = createContext<{ user: User; login: (n: string) => void; logout: () => void } | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(`/api/search?q=${query}`, { signal: controller.signal })
-      .then(res => res.json())
-      .then(setResults)
-      .catch(err => {
-        if (err.name !== 'AbortError') console.error(err);
-      });
-    return () => controller.abort(); // cancel this request if `query` changes again
-  }, [query]);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User>(null);
+  return (
+    <AuthContext value={{ user, login: name => setUser({ name }), logout: () => setUser(null) }}>
+      {children}
+    </AuthContext>
+  );
+}
 
-  return <ul>{results.map(r => <li key={r}>{r}</li>)}</ul>;
+export function useAuth() {
+  const ctx = use(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
+```
+
+**C. Language/locale context**
+
+```tsx
+import { createContext, use, useState, type ReactNode } from 'react';
+
+const LocaleContext = createContext<{ locale: string; setLocale: (l: string) => void } | null>(null);
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const [locale, setLocale] = useState('en');
+  return (
+    <LocaleContext value={{ locale, setLocale }}>{children}</LocaleContext>
+  );
+}
+
+export function useLocale() {
+  const ctx = use(LocaleContext);
+  if (!ctx) throw new Error('useLocale must be used within LocaleProvider');
+  return ctx;
+}
+```
+
+**D. Shopping cart count (consumed two levels deep)**
+
+```tsx
+function CartBadge() {
+  const { count } = useCart(); // reads from context, no props needed
+  return <span>{count} items</span>;
+}
+
+function Header() {
+  return <div><Logo /><CartBadge /></div>; // Header never touches "count" itself
 }
 ```
 
 ---
 
-## Practice Exercises
+## 5. Practice Exercises
 
-**Beginner — Add a "clear filters" button.** Add a single button above the recipe grid that resets `searchTerm`, `selectedTags`, `maxPrepMin`, `sortBy`, and `sortOrder` all back to their defaults in one click.
+**Beginner:**
 
-**Beginner — Show a "no results" message.** When `status === 'success'` and `recipes.length === 0`, render a friendly empty state (e.g. "No recipes match your filters") instead of an empty grid.
+1. Add a third theme option, `'system'`, to `ThemeContext`. When active, `ThemeShell` should fall back to rendering with light styles (no need to detect the OS preference yet).
+2. In `Navbar.tsx`, display the current theme as text (e.g. "Light mode" / "Dark mode") next to the toggle button, reading it from `useTheme()`.
 
-**Intermediate — Debounce the max-prep-time filter too.** Right now `maxPrepMin` triggers an immediate refetch on every change. Run it through `useDebounce` the same way `searchTerm` does, so rapidly changing the number doesn't spam the API.
+**Intermediate:**
 
-**Intermediate — Persist filters in the URL.** Use `URLSearchParams` (or a router's search-params hook) to sync `searchTerm`, `selectedTags`, and `sortBy` into the browser URL, so refreshing the page or sharing a link preserves the current filters.
+3. Create a new `useLocalStorage`-backed `NotesContext` (a `notes-context.ts` + `NotesContext.tsx` pair, following the pantry-pal file-splitting convention) that stores an array of strings and exposes `addNote(text: string)` and `removeNote(index: number)`. Wire it into `App.tsx` and build a simple `NotesPage` component that lists and removes notes.
+4. Refactor `FavoritesProvider`'s `value` object to be wrapped in `useMemo`. Explain (in a comment) what re-renders this prevents and why it's safe here.
 
-**Challenge — Add request cancellation.** Modify `fetchRecipes` in `lib/api.ts` to accept an `AbortSignal`, and update the fetch effect in `RecipeList` to create an `AbortController` per effect run and abort it in the cleanup function. This fully eliminates the race-condition risk described in the Theory section, even without debouncing.
+**Challenge:**
+
+5. Write a guard test (manually, by removing a Provider temporarily) that shows `useTheme()`/`useFavorites()` throwing the "must be used within a Provider" error when called outside their Provider. Then explain in your own words why the `!ctx` check in `favorites-context.ts` can never trigger given the current `createContext` default value — and fix it so it *can* (hint: what should the default value be instead of a real fallback object?).
 
 ---
 
-> **Keep going!** Search, filtering, and pagination together are one of the most common feature sets you'll build in real apps — mastering the "controlled input → debounce → effect → fetch" chain here will pay off in almost every project you touch next. See you in Class 07! 🚀
+> **Nice work!** Context is one of those tools that feels unnecessary until the moment two unrelated branches of your app need the same piece of state — then it clicks immediately. Keep practicing splitting context/provider files and wrapping `useContext` in custom hooks; it's the pattern you'll see in almost every production React codebase. See you in Class 08! 💪

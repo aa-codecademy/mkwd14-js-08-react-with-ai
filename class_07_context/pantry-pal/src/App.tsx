@@ -12,6 +12,11 @@ function App() {
 		'home',
 	);
 
+	// Providers wrap the tree near the root: every component nested inside (NavBar, RecipeList,
+	// RecipeCard, FavoritesPages, ...) can now call useFavorites()/useTheme() directly, with no
+	// props passed through App -> RecipeList -> RecipeCard. Nesting order matters only if one
+	// Provider depends on another's context; here Favorites and Theme are independent, so either
+	// order works.
 	return (
 		<FavoritesProvider>
 			<ThemeProvider>
