@@ -61,7 +61,7 @@ Render all active notifications in a fixed overlay (e.g. bottom-right corner of 
 Update the API calls from Homework 3 to use `notify`:
 
 | Action                    | Notification                                       | Type      |
-| ------------------------- | -------------------------------------------------- | --------- |
+| ------------------------- | --------------------------------------------------- | --------- |
 | Reservation created       | `"Reservation for [guestName] has been created."`  | `success` |
 | Reservation cancelled     | `"Reservation has been cancelled."`                | `success` |
 | Reservation updated       | `"Reservation updated successfully."`              | `success` |
@@ -69,21 +69,11 @@ Update the API calls from Homework 3 to use `notify`:
 
 ---
 
-## Bonus
+## Bonus (optional)
 
 ### Auto-dismiss
 
-Notifications automatically disappear after 4 seconds. The timer resets if a new notification with the same ID is somehow re-added (this won't happen in normal usage but is a good edge-case to handle).
-
-Use `useEffect` inside the provider (or per-notification component) to set and clear the timer. Make sure to clear the timer on component unmount.
-
-### Notification limit
-
-If more than 5 notifications are active at once, the oldest one is automatically removed to make room. Implement this inside the reducer.
-
-### Pause on hover
-
-When the user hovers over the notification stack, auto-dismiss timers pause. When they move away, timers resume. This is a non-trivial UI interaction — think carefully about where the pause state lives.
+Notifications automatically disappear after 4 seconds. Use `useEffect` (per-notification component is simplest) to set a timer that calls `dismiss(id)`, and make sure to clear it on unmount.
 
 ---
 
