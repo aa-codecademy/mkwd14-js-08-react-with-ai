@@ -1,33 +1,29 @@
 // `import type` tells TypeScript (and bundlers) this import is purely a type — no runtime value.
 // It's a good practice: it makes imports self-documenting and can improve build performance.
+import { useNavigate } from 'react-router-dom';
 import { useFavorites } from '../../context/favorites-context';
-import type { Recipe, Recipe as RecipeType } from '../../types/recipe';
+import type { Recipe } from '../../types/recipe';
 import TagList from '../TagList';
 import { Button } from '../ui/button';
-
-// Renaming the type to RecipeType avoids a name conflict — we can't call both the component and
-// the type "Recipe" in the same file. A common convention: suffix the type with "Type" or "Props".
 type RecipeProps = {
-	recipe: RecipeType;
+	recipe: Recipe;
 	handleDeleteRecipe: (id: string) => void;
-	handleIsEditing: (recipe: Recipe) => void;
 };
 
 // Component composition: Recipe renders TagList as a child.
 // Each component stays focused on one job — Recipe lays out the card, TagList handles the tag list.
-function RecipeCard({
-	recipe,
-	handleDeleteRecipe,
-	handleIsEditing,
-}: RecipeProps) {
+function RecipeCard({ recipe, handleDeleteRecipe }: RecipeProps) {
 	const { isFavorite, toggleFavorite } = useFavorites();
+	const navigate = useNavigate();
 
 	const isInFavorites = isFavorite(recipe.id);
 
 	return (
 		// `article` is a semantic HTML element for self-contained content (a blog post, a product card, etc.).
 		// Using the right HTML element matters for accessibility and SEO — screen readers understand article.
-		<article className='group relative flex flex-col overflow-hidden rounded-2xl border-emerald-100 bg-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 dark:bg-slate-800'>
+		<article
+			className='group relative flex flex-col overflow-hidden rounded-2xl border-emerald-100 bg-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 dark:bg-slate-800'
+			onClick={() => navigate(`/recipe/${recipe.id}`)}>
 			<button
 				type='button'
 				onClick={() => toggleFavorite(recipe.id)}
@@ -58,13 +54,19 @@ function RecipeCard({
 					<Button
 						variant='outline'
 						size='lg'
-						onClick={() => handleIsEditing(recipe)}>
+						onClick={e => {
+							e.stopPropagation();
+							navigate(`/recipe/${recipe.id}/edit`);
+						}}>
 						Edit
 					</Button>
 					<Button
 						variant='destructive'
 						size='lg'
-						onClick={() => handleDeleteRecipe(recipe.id)}>
+						onClick={e => {
+							e.stopPropagation();
+							handleDeleteRecipe(recipe.id);
+						}}>
 						Delete
 					</Button>
 				</div>

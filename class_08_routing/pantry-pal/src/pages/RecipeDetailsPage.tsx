@@ -1,10 +1,9 @@
 import { Link, useParams } from 'react-router-dom';
-import RecipeForm from '../components/RecipeForm';
 import { useRecipe } from '../hooks/useRecipe';
+import RecipeDetails from '../components/RecipeDetails';
 
-function EditRecipePage() {
+function RecipeDetailsPage() {
 	const { id } = useParams();
-
 	const { recipe, isLoading } = useRecipe(id);
 
 	if (isLoading) {
@@ -16,15 +15,15 @@ function EditRecipePage() {
 	}
 
 	return (
-		<div className='mx-auto max-w-2xl space-y-4'>
+		<div className='mx-auto mx-w-2xl space-y-4'>
 			<Link
 				to='/'
 				className='text-sm text-brand-700 underline dark:text-emerald-300'>
 				← Back to home
 			</Link>
-			<RecipeForm recipe={recipe} />
+			<RecipeDetails recipe={recipe} />
 		</div>
 	);
 }
 
-export default EditRecipePage;
+export default RecipeDetailsPage;

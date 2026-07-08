@@ -6,6 +6,7 @@ import AppLayout from './components/AppLayout';
 import HomePage from './pages/HomePage';
 import NewRecipePage from './pages/NewRecipePage';
 import EditRecipePage from './pages/EditRecipePage';
+import RecipeDetailsPage from './pages/RecipeDetailsPage';
 
 function App() {
 	return (
@@ -17,11 +18,9 @@ function App() {
 							<Route index element={<HomePage />} />
 							<Route path='favorites' element={<FavoritesPage />} />
 							<Route path='recipe/new' element={<NewRecipePage />} />
+							<Route path='recipe/:id' element={<RecipeDetailsPage />} />
 							<Route path='recipe/:id/edit' element={<EditRecipePage />} />
 						</Route>
-						{/* <RecipeList />
-
-						<RecipeForm /> */}
 					</Routes>
 				</BrowserRouter>
 			</ThemeProvider>

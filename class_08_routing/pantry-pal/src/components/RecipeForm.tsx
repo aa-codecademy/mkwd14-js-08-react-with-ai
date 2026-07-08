@@ -5,6 +5,7 @@ import { useFieldArray, useForm } from 'react-hook-form';
 import type { CreateRecipe, Recipe } from '../types/recipe';
 import { createRecipe, updateRecipe } from '../lib/api';
 import { Button } from './ui/button';
+import { useNavigate } from 'react-router-dom';
 
 // FormValues describes the shape of the data as the form sees it.
 // This can differ from the final Recipe type — e.g. `tags` is a comma-separated string here
@@ -68,10 +69,9 @@ const ERROR_FIELD_CLASSES = 'mt-1 text-xs text-red-600';
 type RecipeFormProps = {
 	recipe?: Recipe;
 	onClose?: () => void;
-	onSuccess: () => void;
 };
 
-function RecipeForm({ recipe, onClose, onSuccess }: RecipeFormProps) {
+function RecipeForm({ recipe, onClose }: RecipeFormProps) {
 	// useForm returns an object with everything you need to manage the form.
 	// Destructure only what you need — the full API is larger.
 	const {
@@ -84,6 +84,8 @@ function RecipeForm({ recipe, onClose, onSuccess }: RecipeFormProps) {
 	} = useForm<FormValues>({
 		defaultValues: toFormValues(recipe),
 	});
+
+	const navigate = useNavigate();
 
 	const isEditing = !!recipe;
 
@@ -138,15 +140,14 @@ function RecipeForm({ recipe, onClose, onSuccess }: RecipeFormProps) {
 		const savedRecipe = isEditing
 			? await updateRecipe(recipe.id, payload)
 			: await createRecipe(payload);
-		console.log('🚀 ~ onSubmit ~ savedRecipe:', savedRecipe);
-		// reset() clears the form back to DEFAULT_VALUES after a successful submission.
 
 		if (isEditing) {
 			onClose?.();
 		} else {
 			reset(toFormValues(recipe));
 		}
-		onSuccess();
+
+		navigate(`/recipe/${savedRecipe.id}`);
 	};
 
 	return (
@@ -196,6 +197,7 @@ function RecipeForm({ recipe, onClose, onSuccess }: RecipeFormProps) {
 							URL_PATTERN.test(value.trim()) ||
 							'Must be a valid URL',
 					})}
+					type='url'
 					placeholder='https://...'
 					className={INPUT_CLASSES}
 				/>

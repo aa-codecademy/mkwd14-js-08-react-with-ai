@@ -1,15 +1,11 @@
-import { useState } from 'react';
-import type { Recipe } from '../types/recipe';
-import EditRecipeDialog from '../components/EditRecipeDialog';
 import RecipeSearchSection from '../components/recipe-list/RecipeSearchSection';
 import RecipeStatus from '../components/recipe-list/RecipeStatus';
 import RecipePagination from '../components/recipe-list/RecipePagination';
 import RecipeGrid from '../components/recipe-list/RecipeGrid';
-import { useRecipe } from '../hooks/useRecipe';
+import { useRecipes } from '../hooks/useRecipes';
 import { deleteRecipe } from '../lib/api';
 
 function HomePage() {
-	const [isEditing, setIsEditing] = useState<Recipe | null>();
 	const {
 		recipes,
 		availableTags,
@@ -32,7 +28,7 @@ function HomePage() {
 		limit,
 		setLimit,
 		loadRecipes,
-	} = useRecipe();
+	} = useRecipes();
 
 	const onTagToggle = (tag: string) => {
 		const isSelected = selectedTags.includes(tag);
@@ -73,11 +69,7 @@ function HomePage() {
 				error={error}
 			/>
 
-			<RecipeGrid
-				recipes={recipes}
-				handleDeleteRecipe={handleDeleteRecipe}
-				setIsEditing={setIsEditing}
-			/>
+			<RecipeGrid recipes={recipes} handleDeleteRecipe={handleDeleteRecipe} />
 
 			<RecipePagination
 				page={page}
@@ -86,14 +78,6 @@ function HomePage() {
 				limit={limit}
 				setLimit={setLimit}
 			/>
-
-			{isEditing && (
-				<EditRecipeDialog
-					recipe={isEditing}
-					onClose={() => setIsEditing(null)}
-					onSuccess={loadRecipes}
-				/>
-			)}
 		</div>
 	);
 }
