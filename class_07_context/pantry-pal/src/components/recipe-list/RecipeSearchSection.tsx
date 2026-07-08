@@ -27,8 +27,8 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 type RecipeSearchSectionProps = {
 	searchTerm: string;
 	setSearchTerm: (term: string) => void;
-	maxPrepMin: number | undefined;
-	setMaxPrepMin: (min: number) => void;
+	maxPrepMinutes: number | undefined;
+	setMaxPrepMinutes: (min: number) => void;
 	sortBy: SortBy;
 	setSortBy: (value: SortBy) => void;
 	sortOrder: SortDirection;
@@ -42,8 +42,8 @@ type RecipeSearchSectionProps = {
 function RecipeSearchSection({
 	searchTerm,
 	setSearchTerm,
-	maxPrepMin,
-	setMaxPrepMin,
+	maxPrepMinutes,
+	setMaxPrepMinutes,
 	sortBy,
 	setSortBy,
 	sortOrder,
@@ -73,8 +73,8 @@ function RecipeSearchSection({
 					id='max-prep-min'
 					type='number'
 					min={1}
-					value={maxPrepMin}
-					onChange={e => setMaxPrepMin(Number(e.target.value))}
+					value={maxPrepMinutes}
+					onChange={e => setMaxPrepMinutes(Number(e.target.value))}
 				/>
 			</div>
 
