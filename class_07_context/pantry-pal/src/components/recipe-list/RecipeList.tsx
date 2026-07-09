@@ -9,6 +9,10 @@ import { useRecipe } from '../../hooks/useRecipe';
 import { deleteRecipe } from '../../lib/api';
 
 function RecipeList() {
+	// Note what's NOT here: no useTheme()/useFavorites() calls. RecipeList only manages
+	// recipe data (via useRecipe) and passes it down as props to its own children — favorites
+	// and theme are read directly by the deeper components that actually need them
+	// (RecipeCard, Navbar), which is the whole point of Context: skip the middlemen.
 	const [isEditing, setIsEditing] = useState<Recipe | null>();
 	const {
 		recipes,

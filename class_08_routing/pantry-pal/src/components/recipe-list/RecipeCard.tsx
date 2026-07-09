@@ -14,6 +14,8 @@ type RecipeProps = {
 // Each component stays focused on one job — Recipe lays out the card, TagList handles the tag list.
 function RecipeCard({ recipe, handleDeleteRecipe }: RecipeProps) {
 	const { isFavorite, toggleFavorite } = useFavorites();
+	// useNavigate gives you an imperative way to change routes (e.g. after a click handler
+	// runs some logic), unlike <Link>/<NavLink> which are declarative and rendered as elements.
 	const navigate = useNavigate();
 
 	const isInFavorites = isFavorite(recipe.id);
@@ -23,6 +25,10 @@ function RecipeCard({ recipe, handleDeleteRecipe }: RecipeProps) {
 		// Using the right HTML element matters for accessibility and SEO — screen readers understand article.
 		<article
 			className='group relative flex flex-col overflow-hidden rounded-2xl border-emerald-100 bg-white shadow-md hover:shadow-xl hover:-translate-y-1 transition-all duration-300 dark:bg-slate-800'
+			// The whole card is clickable and navigates to the dynamic route recipe/:id.
+			// Gotcha: the favorite/edit/delete buttons live inside this element, so their
+			// onClick handlers must call e.stopPropagation() — otherwise clicking them would
+			// also bubble up and trigger this card-level navigate().
 			onClick={() => navigate(`/recipe/${recipe.id}`)}>
 			<button
 				type='button'

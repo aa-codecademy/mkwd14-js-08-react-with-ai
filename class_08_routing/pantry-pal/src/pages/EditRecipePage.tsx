@@ -3,6 +3,8 @@ import RecipeForm from '../components/RecipeForm';
 import { useRecipe } from '../hooks/useRecipe';
 
 function EditRecipePage() {
+	// Same dynamic segment as RecipeDetailsPage — "/recipe/:id/edit" matches this component
+	// and exposes the same :id param, even though it's a different route/page.
 	const { id } = useParams();
 
 	const { recipe, isLoading } = useRecipe(id);

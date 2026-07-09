@@ -7,6 +7,8 @@ export function useRecipe(id: string | undefined) {
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 
 	useEffect(() => {
+		// Guard against the undefined case: useParams() types `id` as possibly undefined,
+		// and it really can be undefined for a render or two before the router settles.
 		if (!id) {
 			return;
 		}
@@ -18,6 +20,9 @@ export function useRecipe(id: string | undefined) {
 				console.log('something is wrong!');
 			})
 			.finally(() => setIsLoading(false));
+		// id in the dependency array: if the user navigates from /recipe/1 to /recipe/2 while
+		// already on this page, React Router reuses the same component instance (no remount),
+		// so without this dependency the effect wouldn't re-run and the old recipe would stick.
 	}, [id]);
 
 	return {

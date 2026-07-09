@@ -22,10 +22,15 @@ function NavBar() {
 				<span className='mr-4 font-bold text-brand-700 dark:text-emerald-300'>
 					PantryPal
 				</span>
+				{/* NavLink instead of a plain <a>: clicking it updates the URL via the History API
+				    and re-renders only the routed content — no full page reload, no losing React state.
+				    A plain <a href="/favorites"> would force a full browser navigation instead. */}
 				{NAV_ITEMS.map(item => (
 					<NavLink
 						key={item.path}
 						to={item.path}
+						// `end` forces exact matching for "/" — without it, NavLink would treat
+						// "/" as a prefix and mark Home active on every route (since every path starts with "/").
 						end={item.end}
 						className={({ isActive }) =>
 							isActive

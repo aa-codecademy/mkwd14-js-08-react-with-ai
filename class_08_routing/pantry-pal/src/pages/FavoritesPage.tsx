@@ -33,6 +33,8 @@ function FavoritesPage() {
 			<div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
 				{favorites.map(recipe => (
 					// recipe.id is a stable string ID from the database — safe to use as key.
+					// Note: this "/favorites" route is a sibling of "/" (not nested under it) —
+					// it renders as its own page inside the shared AppLayout via <Outlet />.
 					<RecipeCard
 						key={recipe.id}
 						recipe={recipe}
