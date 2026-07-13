@@ -1,7 +1,10 @@
+import { usePantryPalStore } from '../store/usePantryPalStore';
+import type { Weekday } from '../types/meal-plan';
+import type { Recipe } from '../types/recipe';
 import RecipeAutosuggest from './RecipeAutosuggest';
 import { Button } from './ui/button';
 
-const WEEKDAYS = [
+const WEEKDAYS: Weekday[] = [
 	'Monday',
 	'Tuesday',
 	'Wednesday',
@@ -12,11 +15,17 @@ const WEEKDAYS = [
 ];
 
 function MealPlanPanel() {
+	const mealPlan = usePantryPalStore(state => state.mealPlan);
+	const assignMeal = usePantryPalStore(state => state.assignMeal);
+	const rebuildShoppingList = usePantryPalStore(
+		state => state.rebuildShoppingList,
+	);
+
 	return (
 		<section className='rounded-2xl border border-emerald-100 bg-white p-5 dark:border-slate-700 dark:bg-slate-800'>
 			<div className='mb-4 flex items-center justify-between'>
 				<h2 className='text-lg font-semibold'>Weekly meal plan</h2>
-				<Button type='button' variant='default'>
+				<Button type='button' variant='default' onClick={rebuildShoppingList}>
 					Build shopping list
 				</Button>
 			</div>
@@ -25,7 +34,9 @@ function MealPlanPanel() {
 					<li key={day} className='flex flex-wrap items-center gap-3'>
 						<span className='w-24 capitalize text-sm font-medium'>{day}</span>
 						<div className='flex-1'>
-							<RecipeAutosuggest />
+							<RecipeAutosuggest
+								onMealSelect={recipe => assignMeal(day, recipe)}
+							/>
 						</div>
 					</li>
 				))}
