@@ -3,6 +3,9 @@ import { Checkbox } from './ui/checkbox';
 import { Field, FieldLabel } from './ui/field';
 
 function MealPlanShoppingList() {
+	// Selecting just `shoppingList` (not the whole store) means this component won't re-render
+	// when, say, mealPlan changes in MealPlanPanel — the two components share one store but
+	// only re-render for the slice of state they actually asked for.
 	const shoppingList = usePantryPalStore(state => state.shoppingList);
 	const toggleShoppingListItem = usePantryPalStore(
 		state => state.toggleShoppingListItem,

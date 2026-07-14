@@ -15,6 +15,9 @@ const WEEKDAYS: Weekday[] = [
 ];
 
 function MealPlanPanel() {
+	// This is a Zustand selector: usePantryPalStore(selectorFn) subscribes ONLY to the slice
+	// returned by the function, not the whole store. Selecting `state.mealPlan` here means this
+	// component re-renders when mealPlan changes, but NOT when shoppingList changes elsewhere.
 	const mealPlan = usePantryPalStore(state => state.mealPlan);
 	const assignMeal = usePantryPalStore(state => state.assignMeal);
 	const rebuildShoppingList = usePantryPalStore(
