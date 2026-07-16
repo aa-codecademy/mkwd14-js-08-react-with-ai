@@ -77,3 +77,9 @@ All homework instructions live in the [`homeworks/`](./homeworks) folder. Each a
 ## 📁 Class materials
 
 In-class examples and exercises are organized by session (e.g. [`01_components/`](./01_components)).
+
+---
+
+## 🚀 Continuing after this course
+
+Done with React classes but want to keep learning? See [`FUTURE_LEARNING.md`](./FUTURE_LEARNING.md) for curated next steps (Next.js, TanStack Query, exercises, and more).

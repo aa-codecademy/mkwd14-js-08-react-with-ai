@@ -10,6 +10,9 @@ import { useMemo } from 'react';
 import { Button } from './ui/button';
 
 function MealPlanShoppingList() {
+	// Same useShallow pattern as PantryPanel: pull the three raw slices of state this
+	// component needs (from potentially three different slice files) plus two actions,
+	// in one subscription — without it, this object literal would trigger endless re-renders.
 	const {
 		mealPlan,
 		pantry,
@@ -26,6 +29,9 @@ function MealPlanShoppingList() {
 		})),
 	);
 
+	// The actual "shopping list" the user sees is never stored anywhere — it's rebuilt
+	// here from mealPlan + pantry + checkedOffItems every time one of them changes.
+	// This guarantees it can never drift out of sync with the meal plan or pantry.
 	const shoppingList = useMemo(
 		() => buildShoppingList(mealPlan, pantry, checkedOffItems),
 		[mealPlan, pantry, checkedOffItems],

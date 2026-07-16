@@ -4,6 +4,13 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AppLayout from './components/AppLayout';
 import { lazy } from 'react';
 
+// lazy() defers loading each page's code until it's actually navigated to, splitting
+// the app into smaller chunks instead of one big bundle shipped up front.
+// Gotcha: lazy() components are supposed to be wrapped in a <Suspense fallback={...}>
+// so React has something to show while the chunk downloads. There isn't one here —
+// it "works" because the chunks load near-instantly in dev — but a real app should
+// wrap <Routes> (or each <Route element>) in <Suspense> to avoid a blank flash/error
+// on a slower connection.
 const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
 const HomePage = lazy(() => import('./pages/HomePage'));
 const NewRecipePage = lazy(() => import('./pages/NewRecipePage'));
@@ -43,6 +50,9 @@ function App() {
 
 							<Route path='meal-plan' element={<MealPlanPage />} />
 
+							{/* `*` is a wildcard segment that matches any URL not matched above.
+							    Keep it LAST — Routes ranks matches by specificity, but a catch-all
+							    listed first would still only win when nothing more specific matches. */}
 							<Route path='*' element={<NotFoundPage />} />
 						</Route>
 					</Routes>

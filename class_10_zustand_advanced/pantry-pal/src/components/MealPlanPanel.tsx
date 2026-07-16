@@ -15,6 +15,11 @@ const WEEKDAYS: Weekday[] = [
 ];
 
 function MealPlanPanel() {
+	// This component only needs one action, so a plain single-field selector is enough —
+	// no useShallow required. Compare with PantryPanel/MealPlanShoppingList, which select
+	// several fields at once and need useShallow to avoid re-rendering on every store change.
+	// Note there's no "Build shopping list" button anymore: the shopping list is now derived
+	// automatically (see MealPlanShoppingList), so nothing needs to be manually rebuilt.
 	const assignMeal = usePantryPalStore(state => state.assignMeal);
 
 	return (

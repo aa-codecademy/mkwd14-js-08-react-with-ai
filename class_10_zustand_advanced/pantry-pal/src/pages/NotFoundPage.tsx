@@ -7,6 +7,10 @@ type NotFoundPageProps = {
 	backLabel?: string;
 };
 
+// Every prop has a default, so this component works two ways: as the catch-all route
+// (`<Route path='*' element={<NotFoundPage />} />` in App.tsx) with generic copy, AND
+// rendered directly with custom text (see RecipeDetailsPage.tsx) for a more specific
+// "this recipe doesn't exist" message — one component, two use cases.
 function NotFoundPage({
 	title = 'Page not found',
 	message = "We couldn't find the page you were looking for. It may have been moved or never existed.",

@@ -8,6 +8,11 @@ import { useMemo } from 'react';
 import { buildPantryOptions } from '../store/hlprs/pantry.hlpr';
 
 function PantryPanel() {
+	// Selecting several fields at once means the selector returns a brand-new object
+	// literal on every call — without useShallow, Zustand would see a "new" reference
+	// every render (even if none of the values actually changed) and re-render forever.
+	// useShallow instead compares the object's fields one level deep, so the component
+	// only re-renders when one of these six values actually changes.
 	const {
 		mealPlan,
 		pantry,
@@ -26,6 +31,8 @@ function PantryPanel() {
 		})),
 	);
 
+	// buildPantryOptions is a plain, non-reactive function — useMemo just avoids
+	// recomputing the derived list on every render, only when mealPlan or pantry change.
 	const options = useMemo(
 		() => buildPantryOptions(mealPlan, pantry),
 		[mealPlan, pantry],
